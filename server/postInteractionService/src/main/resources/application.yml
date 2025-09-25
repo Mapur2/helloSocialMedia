@@ -1,0 +1,41 @@
+spring:
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: guest
+    password: guest
+    application:
+        name: postInteractionService
+  datasource:
+      driver-class-name: com.mysql.cj.jdbc.Driver
+      url: jdbc:mysql://localhost:3306/socialmedia
+      username: root
+      password: rupam123
+  jpa:
+      properties:
+          hibernate:
+              dialect: org.hibernate.dialect.MySQL8Dialect
+      hibernate:
+          ddl-auto: update
+      show-sql: false
+
+server:
+  port: 8083
+
+rabbitmq:
+  exchanges:
+    comment: comment.exchange
+    like: like.exchange
+
+  queues:
+    comment: comment.queue
+    like: like.queue
+
+  routing:
+    comment: comment.tracking
+    like: like.tracking
+
+
+services:
+  userservice:
+    url: http://localhost:8080

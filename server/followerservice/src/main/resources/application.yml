@@ -1,0 +1,21 @@
+spring:
+  application:
+    name: followerservice
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/socialmedia
+    username: root
+    password: rupam123
+  jpa:
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQL8Dialect
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+
+server:
+  port: 8082
+
+services:
+  userserivce: http://localhost:8080/api/users/followers

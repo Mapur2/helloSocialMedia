@@ -1,0 +1,44 @@
+spring:
+  application:
+    name: postservice
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/socialmedia
+    username: root
+    password: rupam123
+  jpa:
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQL8Dialect
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: guest
+    password: guest
+    application:
+      name: postInteractionService
+
+server:
+  port: 8081
+
+rabbitmq:
+  exchanges:
+    comment: comment.exchange
+    like: like.exchange
+
+  queues:
+    comment: comment.queue
+    like: like.queue
+
+  routing:
+    comment: comment.tracking
+    like: like.tracking
+
+
+#  CLOUDINARY_CLOUD_NAME=dl6qnuiud
+#  CLOUDINARY_API_KEY=585514673928671
+#  CLOUDINARY_API_SECRET=pI7vMJV4qTuKffOLRzVJMRCpCjQ
