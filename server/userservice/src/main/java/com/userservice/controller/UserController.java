@@ -35,9 +35,14 @@ public class UserController {
     }
 
     @PostMapping("/register")
-    public ResponseEntity<UserResponse> register(@Valid @RequestBody RegisterRequest request){
-        request.setPassword(encoder.encode(request.getPassword()));
-        return ResponseEntity.ok(userService.register(request));
+    public ResponseEntity<?> register(@Valid @RequestBody RegisterRequest request){
+        try {
+            request.setPassword(encoder.encode(request.getPassword()));
+            return ResponseEntity.ok(userService.register(request));
+        }
+        catch (Exception e){
+            return  ResponseEntity.badRequest().body(e.getMessage());
+        }
     }
 
     @GetMapping("/{userId}/validate")

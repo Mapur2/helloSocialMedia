@@ -13,25 +13,24 @@ import org.springframework.web.client.RestTemplate;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
+import com.postInteractionService.entity.Like;
+import com.postInteractionService.repository.LikeRepo;
 
 @Slf4j
 @Service
 public class CommentService {
-
-    @Value("${rabbitmq.exchanges.comment}")
-    private String commentExchange;
-
-    @Value("${rabbitmq.routing.comment}")
-    private String commentRoutingKey;
-
-    @Autowired
-    private RabbitTemplate rabbitTemplate;
-
     @Autowired
     private CommentRepo commentRepo;
 
+    @Autowired
+    private LikeRepo likeRepo;
+
+    @Value("${services.postservice.url}")
+    private String postservice;
     @Value("${services.userservice.url}")
     private String userServiceURL;
+
     @Autowired
     private RestTemplate restTemplate;
 
@@ -40,7 +39,8 @@ public class CommentService {
         commentRepo.save(newComment);
 
         try {
-            rabbitTemplate.convertAndSend(commentExchange,commentRoutingKey,new CommentMessage(comment.getPostId(),"INCREASE"));
+            String url = postservice+"/api/posts/comment-count";
+            restTemplate.put(url, new CommentMessage(newComment.getPostId(), "INCREASE"), String.class);
         }
         catch (Exception e){
             log.error("Could not publish comment");
@@ -84,6 +84,30 @@ public class CommentService {
             e.setCommentorUserName(usernames.getUsers().get(e.getCommentorId()));
         }
         return commentUsernameDTOS;
+    }
+
+    public void likePost(String userId, String postId) throws Exception {
+        Optional<Like> existingLike = likeRepo.findByUserIdAndPostId(userId, postId);
+        String action;
+        
+        if (existingLike.isPresent()) {
+            likeRepo.delete(existingLike.get());
+            action = "dislike";
+        } else {
+            Like like = new Like();
+            like.setUserId(userId);
+            like.setPostId(postId);
+            likeRepo.save(like);
+            action = "like";
+        }
+
+        try {
+            String url = postservice + "/api/posts/react/" + postId + "/" + action;
+            restTemplate.put(url, null);
+        } catch (Exception e) {
+            log.error("Could not update like count in post service");
+            throw new Exception("Could not interact with post service", e);
+        }
     }
 
 }

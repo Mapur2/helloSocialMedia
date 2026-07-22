@@ -8,9 +8,9 @@ spring:
         name: postInteractionService
   datasource:
       driver-class-name: com.mysql.cj.jdbc.Driver
-      url: jdbc:mysql://localhost:3306/socialmedia
+      url: jdbc:mysql://avnadmin:AVNS_gRyATXAHOgD_LF6tXX1@fastfoods-fastfoods.j.aivencloud.com:26790/defaultdb?ssl-mode=REQUIRED
       username: root
-      password: rupam123
+      password: AVNS_gRyATXAHOgD_LF6tXX1
   jpa:
       properties:
           hibernate:
@@ -39,3 +39,5 @@ rabbitmq:
 services:
   userservice:
     url: http://localhost:8080
+  postservice:
+    url: http://localhost:8081

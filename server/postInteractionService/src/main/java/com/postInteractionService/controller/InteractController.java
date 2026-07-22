@@ -13,12 +13,12 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/post/interact/comment")
-public class CommentController {
+@RequestMapping("/api/post/interact")
+public class InteractController {
     @Autowired
     private CommentService commentService;
 
-    @PostMapping
+    @PostMapping("/comments")
     public ResponseEntity<Response<Comment>> newComment(@RequestBody CommentDTO comment, @RequestHeader("X-USER-ID") String userId){
         try{
             comment.setUserId(userId);
@@ -30,7 +30,7 @@ public class CommentController {
         }
     }
 
-    @GetMapping("/all/{postId}")
+    @GetMapping("/comments/{postId}")
     public ResponseEntity<Response<List<CommentUsernameDTO>>> allComments(@PathVariable String postId){
         try{
             List<CommentUsernameDTO> comments = commentService.getCommentsOfPost(postId);
@@ -40,4 +40,16 @@ public class CommentController {
             return new ResponseEntity<>(new Response<>(false,e.getMessage(),null), HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
+
+    @PostMapping("/like/{postId}")
+    public ResponseEntity<Response<String>> likePost(@RequestHeader("X-USER-ID") String userId, @PathVariable String postId){
+        try{
+            commentService.likePost(userId, postId);
+            return new ResponseEntity<>(new Response<>(true, "Liked successfully", "" ), HttpStatus.OK);
+        }
+        catch (Exception e){
+            return ResponseEntity.badRequest().body(new Response<>(false,  "Something went wrong",""));
+        }
+    }
+
 }

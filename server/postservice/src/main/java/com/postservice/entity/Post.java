@@ -21,8 +21,8 @@ public class Post {
     @Column(columnDefinition = "TEXT")
     private String content;
 
-    @Column(length = 255)
-    private String mediaUrl;
+    @Column(name = "mediaId")
+    private String mediaId;
 
     @Enumerated(EnumType.STRING)
     @Column(length = 10, nullable = false)

@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Simple Chat</title>
+    <style>
+        body {
+          font-family: Arial, sans-serif;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          padding: 20px;
+          background: #f2f2f2;
+        }
+        #chatBox {
+          width: 400px;
+          height: 300px;
+          border: 1px solid #ccc;
+          background: #fff;
+          overflow-y: auto;
+          margin-bottom: 10px;
+          padding: 10px;
+        }
+        .message {
+          margin: 5px 0;
+          padding: 8px;
+          border-radius: 6px;
+        }
+        .sent {
+          background: #d1e7dd;
+          text-align: right;
+        }
+        .received {
+          background: #f8d7da;
+          text-align: left;
+        }
+        #controls {
+          display: flex;
+          flex-direction: column;
+          width: 400px;
+        }
+        input, button {
+          margin: 5px 0;
+          padding: 8px;
+          font-size: 14px;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/sockjs-client/dist/sockjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/stompjs/lib/stomp.min.js"></script>
+</head>
+
+<body>
+<h2>One-to-One Chat</h2>
+
+<div>
+    <input type="text" id="userId" placeholder="Enter your userId">
+    <button onclick="connect()">Connect</button>
+</div>
+
+<div id="chatBox"></div>
+
+<div id="controls">
+    <input type="text" id="receiverId" placeholder="Receiver ID">
+    <input type="text" id="messageInput" placeholder="Type a message...">
+    <button onclick="sendPrivateMessage()">Send</button>
+</div>
+
+<script>
+    let stompClient = null;
+    let currentUserId = null;
+    let activeChatUser = null; // the person I'm currently chatting with
+
+    function connect() {
+      currentUserId = document.getElementById("userId").value.trim();
+      if (!currentUserId) {
+        alert("Enter your userId!");
+        return;
+      }
+
+      const socket = new SockJS("http://localhost:8084/chat");
+      stompClient = Stomp.over(socket);
+      stompClient.connect({}, () => {
+        stompClient.subscribe(`/user/${currentUserId}/queue/messages`, (msg) => {
+          const data = JSON.parse(msg.body);
+
+          // only show if this message belongs to the active chat
+          if (data.senderId === activeChatUser || data.receiverId === activeChatUser) {
+            showMessage(`${data.senderId}: ${data.content}`, "received");
+          } else {
+            console.log("Message from another chat:", data);
+            // optionally show a notification here
+          }
+        });
+        alert("Connected as User " + currentUserId);
+      });
+    }
+
+    function sendPrivateMessage() {
+      const receiverId = document.getElementById("receiverId").value.trim();
+      const content = document.getElementById("messageInput").value.trim();
+      if (!receiverId || !content) {
+        alert("Enter receiverId and message!");
+        return;
+      }
+
+      activeChatUser = receiverId; // update the active chat target
+
+      const chatMessage = {
+        senderId: currentUserId,
+        receiverId: receiverId,
+        content: content
+      };
+
+      stompClient.send("/app/chat.private", {}, JSON.stringify(chatMessage));
+
+      showMessage(`Me: ${content}`, "sent");
+      document.getElementById("messageInput").value = "";
+    }
+
+    function showMessage(content, type) {
+      const chatBox = document.getElementById("chatBox");
+      const msgDiv = document.createElement("div");
+      msgDiv.className = "message " + type;
+      msgDiv.innerText = content;
+      chatBox.appendChild(msgDiv);
+      chatBox.scrollTop = chatBox.scrollHeight;
+    }
+</script>
+</body>
+</html>

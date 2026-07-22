@@ -14,54 +14,31 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class RabbitMqConfig {
 
-    @Value("${rabbitmq.queues.comment}")
-    private String commentQueue;
-    @Value("${rabbitmq.exchanges.comment}")
-    private String commentExchange;
-    @Value("${rabbitmq.routing.comment}")
-    private String commentRoutingKey;
+    @Value("${rabbitmq.queues.media}")
+    public String mediaQueue;
+    @Value("${rabbitmq.exchanges.media}")
+    public  String mediaExchange;
+    @Value("${rabbitmq.routing.media}")
+    public  String mediaRoutingKey;
 
-    @Value("${rabbitmq.queues.like}")
-    private String likeQueue;
-    @Value("${rabbitmq.exchanges.like}")
-    private String likeExchange;
-    @Value("${rabbitmq.routing.like}")
-    private String likeRoutingKey;
 
-    // --- COMMENT QUEUE ---
+
+    // --- Media QUEUE ---
     @Bean
-    public Queue commentActivityQueue() {
-        return new Queue(commentQueue, true);
+    public Queue mediaActivityQueue() {
+        return new Queue(mediaQueue, true);
     }
 
     @Bean
-    public DirectExchange commentActivityExchange() {
-        return new DirectExchange(commentExchange);
+    public DirectExchange mediaActivityExchange() {
+        return new DirectExchange(mediaExchange);
     }
 
     @Bean
-    public Binding commentBinding(Queue commentActivityQueue, DirectExchange commentActivityExchange) {
-        return BindingBuilder.bind(commentActivityQueue)
-                .to(commentActivityExchange)
-                .with(commentRoutingKey);
-    }
-
-    // --- LIKE QUEUE ---
-    @Bean
-    public Queue likeActivityQueue() {
-        return new Queue(likeQueue, true);
-    }
-
-    @Bean
-    public DirectExchange likeActivityExchange() {
-        return new DirectExchange(likeExchange);
-    }
-
-    @Bean
-    public Binding likeBinding(Queue likeActivityQueue, DirectExchange likeActivityExchange) {
-        return BindingBuilder.bind(likeActivityQueue)
-                .to(likeActivityExchange)
-                .with(likeRoutingKey);
+    public Binding mediaBinding(Queue mediaActivityQueue, DirectExchange mediaActivityExchange) {
+        return BindingBuilder.bind(mediaActivityQueue)
+                .to(mediaActivityExchange)
+                .with(mediaRoutingKey);
     }
 
     // --- JSON Converter ---

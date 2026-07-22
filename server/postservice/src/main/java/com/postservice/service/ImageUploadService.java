@@ -8,7 +8,11 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.util.Map;
 
-@Service
+/**
+ * deprecated service
+ * only keep just for sake of it
+ */
+//@Service
 public class ImageUploadService {
 
     private final Cloudinary cloudinary;

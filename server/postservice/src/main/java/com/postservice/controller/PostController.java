@@ -1,5 +1,8 @@
 package com.postservice.controller;
 
+import com.postservice.dto.CommentMessage;
+import com.postservice.dto.PostDto;
+import com.postservice.dto.PostResponseDTO;
 import com.postservice.dto.Response;
 import com.postservice.entity.Post;
 import com.postservice.entity.Visibility;
@@ -19,8 +22,6 @@ import java.util.List;
 public class PostController {
 
     @Autowired
-    private ImageUploadService imageUploadService;
-    @Autowired
     private PostService postService;
 
     @GetMapping("/me")
@@ -29,27 +30,22 @@ public class PostController {
     }
 
 
-    @PostMapping(consumes = "multipart/form-data")
+    @PostMapping
     public ResponseEntity<Response> createPost(
-            @RequestHeader("X-User-Id") String userId,
-            @RequestParam("content") String content,
-            @RequestParam("visibility") Visibility visibility,
-            @RequestParam("mediaFile") MultipartFile mediaFile) {
+                @RequestHeader("X-User-Id") String userId,
+            @RequestBody PostDto postDto) {
         try {
-            String url = imageUploadService.uploadFile(mediaFile).get("secure_url").toString();
             Post newPost = new Post();
             newPost.setUserId(userId);
-            newPost.setContent(content);
-            newPost.setVisibility(visibility);
-            newPost.setMediaUrl(url);
-            newPost = postService.savePost(newPost);
+            newPost.setContent(postDto.getContent());
+            newPost.setVisibility(postDto.getVisibility());
+            newPost = postService.savePost(newPost, postDto.getMediaId());
 
             return new ResponseEntity<>(new Response(true, "Created a post", newPost), HttpStatus.OK);
         } catch (Exception e) {
             return new ResponseEntity<>(new Response(false, "Could not create a post", null), HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
-
 
     // Get all posts of a specific user by userId
     @GetMapping("/user")
@@ -61,7 +57,7 @@ public class PostController {
             else
                 id=userId;
             System.out.println(id);
-            List<Post> posts = postService.getPostsOfUser(id);
+            List<com.postservice.dto.PostResponseDTO> posts = postService.getPostsOfUser(id);
 
             return new ResponseEntity<>(new Response(true, "Posts fetched successfully", posts),
                     HttpStatus.OK);
@@ -72,6 +68,19 @@ public class PostController {
     }
 
 
+    @GetMapping("/{postId}")
+    public ResponseEntity<Response> getPostById(@PathVariable String postId) {
+        try {
+            com.postservice.dto.PostResponseDTO post = postService.getPost(postId);
+            if (post == null) {
+                return new ResponseEntity<>(new Response(false, "Post not found", null), HttpStatus.NOT_FOUND);
+            }
+            return new ResponseEntity<>(new Response(true, "Post fetched successfully", post), HttpStatus.OK);
+        } catch (Exception e) {
+            return new ResponseEntity<>(new Response(false, "Could not fetch post", null), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
     @PutMapping("/react/{postId}/{action}")
     public ResponseEntity<Response> likeDislikePost(@PathVariable String postId,@PathVariable String action){
         try {
@@ -80,5 +89,15 @@ public class PostController {
         }catch (Exception e){
             return new ResponseEntity<>(new Response(false,"Failed",e.getMessage()),HttpStatus.INTERNAL_SERVER_ERROR);
         }
+    }
+
+    @GetMapping
+    public ResponseEntity<Response> getAllPosts(){
+        return new ResponseEntity<>(new Response(true,"All posts",postService.getPosts()),HttpStatus.OK);
+    }
+
+    @PutMapping("/comment-count")
+    public ResponseEntity<Response> updateCommentCount(@RequestBody CommentMessage m){
+        return  new ResponseEntity<>(new Response(true, "Updates Comment Count", postService.updateCommentCount(m)), HttpStatus.OK);
     }
 }

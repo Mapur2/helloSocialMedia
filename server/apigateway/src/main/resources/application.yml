@@ -20,6 +20,10 @@ spring :
           uri: http://localhost:8081
           predicates:
             - Path=/api/posts/**
+        - id: mediaservice
+          uri: http://localhost:8081
+          predicates:
+            - Path=/api/media/**
 
         - id: postinteractionservice
           uri: http://localhost:8083
