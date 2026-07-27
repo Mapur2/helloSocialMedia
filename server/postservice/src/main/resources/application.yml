@@ -41,6 +41,13 @@ rabbitmq:
     media: media.complete
 
 
+services:
+  userservice:
+    url: http://localhost:8080
+  postsinteractionservice:
+    url: http://localhost:8083
+
+
 #  CLOUDINARY_CLOUD_NAME=dl6qnuiud
 #  CLOUDINARY_API_KEY=585514673928671
 #  CLOUDINARY_API_SECRET=pI7vMJV4qTuKffOLRzVJMRCpCjQ

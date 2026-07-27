@@ -29,7 +29,7 @@ export const useGetComments = (postId, enabled = true) => {
   return useQuery({
     queryKey: ['comments', postId],
     queryFn: async () => {
-      const response = await axios.get(`http://localhost:8079/api/post/interact/comment/all/${postId}`);
+      const response = await axios.get(`http://localhost:8079/api/post/interact/comments/${postId}`);
       return response.data.data || [];
     },
     enabled: !!postId && enabled // Only run query if a valid postId is provided and enabled is true
@@ -40,8 +40,8 @@ export const useAddComment = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ postId, text }) => {
-      const response = await axios.post('http://localhost:8079/api/post/interact/comment', { postId, text });
+    mutationFn: async ({ postId, text, commentorId }) => {
+      const response = await axios.post('http://localhost:8079/api/post/interact/comments', { postId, text, commentorId });
       return response.data;
     },
     onSuccess: (data, variables) => {

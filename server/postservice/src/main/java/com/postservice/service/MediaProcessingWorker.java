@@ -94,7 +94,9 @@ public class MediaProcessingWorker {
         Path thumbnail = workDir.resolve("thumbnail.jpg");
         runFfmpeg(List.of(
                 "ffmpeg", "-i", rawFile.toString(),
-                "-ss", "00:00:01", "-vframes", "1",
+                "-ss", "00:00:01",
+                "-frames:v", "1",
+                "-update", "1",
                 thumbnail.toString()
         ));
 

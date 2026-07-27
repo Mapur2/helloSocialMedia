@@ -92,8 +92,8 @@ public class PostController {
     }
 
     @GetMapping
-    public ResponseEntity<Response> getAllPosts(){
-        return new ResponseEntity<>(new Response(true,"All posts",postService.getPosts()),HttpStatus.OK);
+    public ResponseEntity<Response> getAllPosts(@RequestHeader("X-USER-ID") String userId){
+        return new ResponseEntity<>(new Response(true,"All posts",postService.getPosts(userId)),HttpStatus.OK);
     }
 
     @PutMapping("/comment-count")

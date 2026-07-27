@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useReactToPost } from '../../hooks/usePosts';
+import { useReactToPost, useGetLikes } from '../../hooks/usePosts';
 import { useAddComment, useGetComments } from '../../hooks/useSocial';
+import { useAuth } from '../../contexts/AuthContext';
 import { 
   HeartIcon, 
   HandThumbDownIcon,
   ChatBubbleOvalLeftIcon,
   ShareIcon,
-  EllipsisHorizontalIcon
+  EllipsisHorizontalIcon,
+  XMarkIcon
 } from '@heroicons/react/24/outline';
 import { HeartIcon as HeartSolidIcon, PaperAirplaneIcon } from '@heroicons/react/24/solid';
 
@@ -15,9 +17,12 @@ const PostCard = ({ post }) => {
   const [newComment, setNewComment] = useState('');
   const [isLiked, setIsLiked] = useState(false);
   const [isDisliked, setIsDisliked] = useState(false);
+  const [showLikesModal, setShowLikesModal] = useState(false);
+  const { user } = useAuth();
   const { mutateAsync: reactToPost } = useReactToPost();
   const { mutateAsync: addComment } = useAddComment();
   const { data: postComments = [], isLoading: isCommentsLoading } = useGetComments(post.id, showComments);
+  const { data: likes = [], isLoading: isLikesLoading } = useGetLikes(post.id, showLikesModal);
 
   const handleLike = async () => {
     const action = isLiked ? 'unlike' : 'like';
@@ -46,7 +51,7 @@ const PostCard = ({ post }) => {
     if (!newComment.trim()) return;
 
     try {
-      await addComment({ postId: post.id, text: newComment });
+      await addComment({ postId: post.id, text: newComment, commentorId: user?.id || "" });
       setNewComment('');
     } catch (error) {
       console.error("Failed to add comment", error);
@@ -173,6 +178,10 @@ const PostCard = ({ post }) => {
         <div className="flex items-center justify-between p-1">
           <button
             onClick={handleLike}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              setShowLikesModal(true);
+            }}
             className={`flex-1 flex items-center justify-center space-x-2 py-2.5 mx-1 rounded-xl transition-all duration-200 ${
               isLiked 
                 ? 'text-pink-600 bg-pink-50 font-semibold' 
@@ -254,26 +263,76 @@ const PostCard = ({ post }) => {
                  <p className="text-sm font-medium">No comments yet. Be the first!</p>
                </div>
             ) : (
-              postComments.map((comment, index) => (
-                <div key={index} className="flex space-x-3 group">
-                  <div className="w-8 h-8 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-full flex items-center justify-center text-white font-bold text-xs shadow-inner flex-shrink-0 mt-1">
-                    {comment.commenterUsername?.charAt(0) || 'U'}
-                  </div>
-                  <div className="flex-1">
-                    <div className="bg-white border border-gray-100 shadow-sm rounded-2xl rounded-tl-none px-4 py-2.5 inline-block max-w-[90%]">
-                      <p className="font-semibold text-[13px] text-gray-900 mb-0.5 hover:underline cursor-pointer">
-                        {comment.commenterUsername || 'Unknown User'}
-                      </p>
-                      <p className="text-gray-700 text-sm">{comment.text}</p>
+              postComments.map((comment, index) => {
+                const isYou = user?.id === comment.commentorId;
+                const displayName = isYou ? 'You' : (comment.commentorUserName || 'Unknown User');
+                const initial = displayName.charAt(0).toUpperCase();
+
+                return (
+                  <div key={index} className="flex space-x-3 group">
+                    <div className="w-8 h-8 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-full flex items-center justify-center text-white font-bold text-xs shadow-inner flex-shrink-0 mt-1">
+                      {initial}
                     </div>
-                    <div className="flex items-center space-x-4 mt-1.5 ml-2 text-[11px] font-medium text-gray-400">
-                      <span>{formatDate(comment.createdAt)}</span>
-                      <button className="hover:text-gray-600 transition-colors">Reply</button>
+                    <div className="flex-1">
+                      <div className="bg-white border border-gray-100 shadow-sm rounded-2xl rounded-tl-none px-4 py-2.5 inline-block max-w-[90%]">
+                        <p className="font-semibold text-[13px] text-gray-900 mb-0.5 hover:underline cursor-pointer">
+                          {displayName}
+                        </p>
+                        <p className="text-gray-700 text-sm">{comment.text}</p>
+                      </div>
+                      <div className="flex items-center space-x-4 mt-1.5 ml-2 text-[11px] font-medium text-gray-400">
+                        <span>{comment.createdAt ? formatDate(comment.createdAt) : 'Just now'}</span>
+                        <button className="hover:text-gray-600 transition-colors">Reply</button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Likes Modal */}
+      {showLikesModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fade-in">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden transform transition-all scale-100 opacity-100">
+            <div className="flex items-center justify-between p-4 border-b border-gray-100 bg-gray-50/50">
+              <h3 className="font-bold text-gray-900 text-lg">Likes</h3>
+              <button 
+                onClick={() => setShowLikesModal(false)}
+                className="text-gray-400 hover:text-gray-700 hover:bg-gray-200 p-1.5 rounded-full transition-colors"
+              >
+                <XMarkIcon className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-2 max-h-[60vh] overflow-y-auto custom-scrollbar bg-white">
+              {isLikesLoading ? (
+                <div className="flex justify-center py-10">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-pink-500"></div>
+                </div>
+              ) : likes.length === 0 ? (
+                <div className="text-center py-10 text-gray-500">
+                  <HeartIcon className="w-12 h-12 mx-auto text-gray-300 mb-2" />
+                  <p className="text-sm font-medium">No likes yet.</p>
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  {likes.map((like, i) => (
+                    <div key={i} className="flex items-center space-x-3 p-3 hover:bg-gray-50 rounded-xl transition-colors cursor-pointer group">
+                      <div className="w-10 h-10 bg-gradient-to-tr from-pink-500 to-rose-400 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-inner group-hover:scale-105 transition-transform">
+                        {(like.username || 'U').charAt(0).toUpperCase()}
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-semibold text-gray-900 text-[15px]">
+                          {like.userId === user?.id ? 'You' : (like.username || 'Unknown User')}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

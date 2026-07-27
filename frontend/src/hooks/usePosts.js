@@ -72,12 +72,23 @@ export const useReactToPost = () => {
 
   return useMutation({
     mutationFn: async ({ postId, action }) => {
-      const response = await axios.put(`http://localhost:8079/api/posts/react/${postId}/${action}`);
+      const response = await axios.post(`http://localhost:8079/api/post/interact/like/${postId}`);
       return response.data;
     },
     onSuccess: () => {
       // Refetch posts to get updated reaction counts
       queryClient.invalidateQueries({ queryKey: ['posts'] });
     }
+  });
+};
+
+export const useGetLikes = (postId, enabled = false) => {
+  return useQuery({
+    queryKey: ['likes', postId],
+    queryFn: async () => {
+      const response = await axios.get(`http://localhost:8079/api/post/interact/like/${postId}`);
+      return response.data.data || [];
+    },
+    enabled: !!postId && enabled
   });
 };

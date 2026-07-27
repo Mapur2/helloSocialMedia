@@ -19,6 +19,11 @@ public record PostResponseDTO(
         Integer shareCount,
         LocalDateTime createdAt,
         LocalDateTime updatedAt,
-        Boolean isDeleted
-){
+        Boolean isDeleted,
+        Boolean isLikedByUser
+)
+{
+    public PostResponseDTO {
+        if (isLikedByUser == null) isLikedByUser = false;
+    }
 }

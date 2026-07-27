@@ -8,12 +8,13 @@ import lombok.NoArgsConstructor;
 import lombok.ToString;
 
 import java.time.LocalDateTime;
-import java.util.List;
 
-@Table(name = "likes")
+@Table(
+        name = "likes",
+        uniqueConstraints = @UniqueConstraint(columnNames = {"postId", "userId"})
+)
 @Entity
 @Data
-@AllArgsConstructor
 @NoArgsConstructor
 public class Like {
 
@@ -21,23 +22,12 @@ public class Like {
     @GeneratedValue(strategy = GenerationType.UUID)
     private String id;
 
-    @Column
-    private List<String> likeByIds;
+    @Column(nullable = false)
+    private String postId;
 
     @Column(nullable = false)
     private String userId;
 
-    @Column(nullable = false)
-    private String postId;
-
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
-
-    @Column(nullable = false)
-    private LocalDateTime updatedAt = LocalDateTime.now();
-
-    @PreUpdate
-    public void setLastUpdate() {
-        this.updatedAt = LocalDateTime.now();
-    }
 }
