@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.postservice.dto.CommentMessage;
 import com.postservice.dto.PostResponseDTO;
+import com.postservice.dto.UserIds;
 import com.postservice.entity.MediaEntity;
 import com.postservice.entity.Post;
 import com.postservice.repo.MediaRepository;
@@ -15,10 +16,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -38,8 +37,8 @@ public class PostService {
 
     @Value("${services.postsinteractionservice.url}")
     private String interactionServiceUrl;
-
-    // ─── Save Post ───────────────────────────────────────────────────────────
+    @Value("${services.userservice.url}")
+    private String userserviceUrl;
 
     public Post savePost(Post post, String mediaId) {
         if (mediaId != null && !mediaId.isEmpty()) {
@@ -55,7 +54,13 @@ public class PostService {
 
     public List<PostResponseDTO> getPostsOfUser(String userId) {
         List<Post> posts = postRepo.findPostByUserId(userId);
-        return mapPostsToDTOs(posts, Map.of());  // no liked status needed for own posts
+        Map<String, Boolean> likedMap = fetchLikedStatus(userId,
+                posts.stream()
+                        .map(Post::getId)
+                        .toList()  // ← terminates the stream into a List
+        );
+        Map<String, String> userNameMap = fetchUserNames(Set.of(userId));
+        return mapPostsToDTOs(posts, likedMap, userNameMap);
     }
 
     // ─── Get Single Post ─────────────────────────────────────────────────────
@@ -63,7 +68,7 @@ public class PostService {
     public PostResponseDTO getPost(String postId) {
         Post post = postRepo.findPostById(postId);
         if (post == null) return null;
-        return mapPostsToDTOs(Collections.singletonList(post), Map.of()).get(0);
+        return mapPostsToDTOs(Collections.singletonList(post), Map.of(), Map.of()).get(0);
     }
 
     // ─── Get All Posts (feed) with liked status ───────────────────────────────
@@ -75,10 +80,13 @@ public class PostService {
         List<String> postIds = posts.stream()
                 .map(Post::getId)
                 .toList();
-
+        Set<String> userIds = posts.stream()
+                .map(Post::getUserId)
+                .collect(Collectors.toSet());
         Map<String, Boolean> likedMap = fetchLikedStatus(userId, postIds);
+        Map<String, String> userNameMap = fetchUserNames(userIds);
 
-        return mapPostsToDTOs(posts, likedMap);  // ← pass full list, not individual posts
+        return mapPostsToDTOs(posts, likedMap, userNameMap);
     }
 
     // ─── Update Like Count ───────────────────────────────────────────────────
@@ -121,17 +129,33 @@ public class PostService {
     }
 
     // ─── Private: Batch fetch liked status from interactionService ────────────
+    private Map<String, String> fetchUserNames(Set<String> userIds){
+        if(userIds.isEmpty())
+            return Map.of();
+        try {
+            String url = userserviceUrl+"/api/users/usernames";
+            ResponseEntity<Map> response = restTemplate.postForEntity(url, new UserIds(userIds.stream().toList()), Map.class);
+            if (response.getBody() != null) {
 
+                Map<String, String> result = (Map<String, String>) response.getBody().get("users");
+                return result;
+            }
+        }
+        catch (Exception e){
+            log.error("Could not fetch username from user service: {}", e.getMessage());
+        }
+        return Map.of();
+    }
     private Map<String, Boolean> fetchLikedStatus(String userId, List<String> postIds) {
         if (userId == null || userId.isBlank() || postIds.isEmpty()) return Map.of();
 
         try {
-            String url = interactionServiceUrl + "/api/interactions/liked-by/" + userId + "/batch";
+            String url = interactionServiceUrl + "/api/post/interact/liked-by/" + userId + "/batch";
             ResponseEntity<Map> response = restTemplate.postForEntity(url, postIds, Map.class);
+
             if (response.getBody() != null) {
-                Map<String, Boolean> result = new HashMap<>();
-                response.getBody().forEach((k, v) ->
-                        result.put((String) k, (Boolean) v));
+
+                Map<String, Boolean> result = (Map<String, Boolean>) response.getBody().get("data");
                 return result;
             }
         } catch (Exception e) {
@@ -143,8 +167,7 @@ public class PostService {
 
     // ─── Private: Map posts to DTOs ──────────────────────────────────────────
 
-    private List<PostResponseDTO> mapPostsToDTOs(List<Post> posts, Map<String, Boolean> likedMap) {
-        // batch fetch all media in one query — no N+1
+    private List<PostResponseDTO> mapPostsToDTOs(List<Post> posts, Map<String, Boolean> likedMap, Map<String,String> userNameMap) {       // batch fetch all media in one query — no N+1
         List<String> mediaIds = posts.stream()
                 .map(Post::getMediaId)
                 .filter(id -> id != null && !id.isEmpty())
@@ -193,7 +216,8 @@ public class PostService {
                             post.getCreatedAt(),
                             post.getUpdatedAt(),
                             post.getIsDeleted(),
-                            likedMap.getOrDefault(post.getId(), false)
+                            likedMap.getOrDefault(post.getId(), false),
+                            userNameMap.get(post.getUserId())
                     );
                 })
                 .toList();

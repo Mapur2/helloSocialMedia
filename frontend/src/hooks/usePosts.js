@@ -92,3 +92,14 @@ export const useGetLikes = (postId, enabled = false) => {
     enabled: !!postId && enabled
   });
 };
+
+export const useGetUserPosts = (userId) => {
+  return useQuery({
+    queryKey: ['posts', 'user', userId],
+    queryFn: async () => {
+      const response = await axios.get(`http://localhost:8079/api/posts/user?user=${userId}`);
+      return response.data.data || [];
+    },
+    enabled: !!userId
+  });
+};

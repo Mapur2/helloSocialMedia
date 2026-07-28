@@ -21,6 +21,8 @@ const authReducer = (state, action) => {
   switch (action.type) {
     case 'LOGIN_START':
       return { ...state, loading: true, error: null };
+    case 'REGISTER_SUCCESS':
+      return { ...state, loading: false, error: null };
     case 'LOGIN_SUCCESS':
       return {
         ...state,
@@ -135,6 +137,7 @@ export const AuthProvider = ({ children }) => {
     dispatch({ type: 'LOGIN_START' });
     try {
       const response = await axios.post('http://localhost:8079/api/users/register', userData);
+      dispatch({ type: 'REGISTER_SUCCESS' });
       return { success: true, data: response.data };
     } catch (error) {
       const errorMessage = error.response?.data?.message || 'Registration failed';

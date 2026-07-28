@@ -25,7 +25,7 @@ public class User {
     private String firstName;
     private String lastName;
 
-    @Column(nullable = false)
+    @Column(nullable = false, unique = true)
     private String userName;
 
     @Enumerated(EnumType.STRING)

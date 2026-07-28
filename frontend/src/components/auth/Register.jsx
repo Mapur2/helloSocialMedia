@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 import { useAuth } from '../../contexts/AuthContext';
 import { EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline';
 
@@ -15,6 +16,33 @@ const Register = ({ onSwitchToLogin }) => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const { register, loading, error } = useAuth();
   const [success, setSuccess] = useState(false);
+  const [usernameAvailable, setUsernameAvailable] = useState(null);
+  const [checkingUsername, setCheckingUsername] = useState(false);
+
+  useEffect(() => {
+    const checkUsername = async () => {
+      const username = formData.userName;
+      if (!username || username.length < 3) {
+        setUsernameAvailable(null);
+        return;
+      }
+      
+      setCheckingUsername(true);
+      try {
+        // Assuming 8079 is the gateway port consistent with AuthContext
+        const response = await axios.get(`http://localhost:8079/api/users/username/${username}`);
+        setUsernameAvailable(response.data.available);
+      } catch (error) {
+        console.error("Error checking username:", error);
+        setUsernameAvailable(null);
+      } finally {
+        setCheckingUsername(false);
+      }
+    };
+
+    const timeoutId = setTimeout(checkUsername, 500);
+    return () => clearTimeout(timeoutId);
+  }, [formData.userName]);
 
   const handleChange = (e) => {
     setFormData({
@@ -108,9 +136,18 @@ const Register = ({ onSwitchToLogin }) => {
               required
               value={formData.userName}
               onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition duration-200"
+              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition duration-200 ${
+                usernameAvailable === false ? 'border-red-300 bg-red-50' : 'border-gray-300'
+              }`}
               placeholder="Choose a username"
             />
+            {checkingUsername && <p className="text-sm text-gray-500 mt-1">Checking availability...</p>}
+            {usernameAvailable === false && (
+              <p className="text-sm text-red-500 mt-1 font-medium">Username is already taken</p>
+            )}
+            {usernameAvailable === true && (
+              <p className="text-sm text-green-500 mt-1 font-medium">Username is available!</p>
+            )}
           </div>
 
           <div>
@@ -196,7 +233,7 @@ const Register = ({ onSwitchToLogin }) => {
 
           <button
             type="submit"
-            disabled={loading || !passwordsMatch}
+            disabled={loading || !passwordsMatch || usernameAvailable === false}
             className="w-full bg-purple-600 text-white py-2 px-4 rounded-lg hover:bg-purple-700 focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? (

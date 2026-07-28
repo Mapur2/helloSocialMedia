@@ -20,10 +20,12 @@ public record PostResponseDTO(
         LocalDateTime createdAt,
         LocalDateTime updatedAt,
         Boolean isDeleted,
-        Boolean isLikedByUser
+        Boolean isLikedByUser,
+        String userName
 )
 {
     public PostResponseDTO {
         if (isLikedByUser == null) isLikedByUser = false;
+        if (userName == null) isLikedByUser = null;
     }
 }

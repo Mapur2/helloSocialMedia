@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { useReactToPost, useGetLikes } from '../../hooks/usePosts';
 import { useAddComment, useGetComments } from '../../hooks/useSocial';
 import { useAuth } from '../../contexts/AuthContext';
@@ -15,9 +16,13 @@ import { HeartIcon as HeartSolidIcon, PaperAirplaneIcon } from '@heroicons/react
 const PostCard = ({ post }) => {
   const [showComments, setShowComments] = useState(false);
   const [newComment, setNewComment] = useState('');
-  const [isLiked, setIsLiked] = useState(false);
+  const [isLiked, setIsLiked] = useState(post?.isLikedByUser || false);
   const [isDisliked, setIsDisliked] = useState(false);
   const [showLikesModal, setShowLikesModal] = useState(false);
+
+  useEffect(() => {
+    setIsLiked(post?.isLikedByUser || false);
+  }, [post?.isLikedByUser]);
   const { user } = useAuth();
   const { mutateAsync: reactToPost } = useReactToPost();
   const { mutateAsync: addComment } = useAddComment();
@@ -111,13 +116,15 @@ const PostCard = ({ post }) => {
       {/* Post Header */}
       <div className="p-5 flex items-center justify-between">
         <div className="flex items-center space-x-4">
-          <div className="w-11 h-11 bg-gradient-to-tr from-blue-500 via-indigo-500 to-purple-500 rounded-full flex items-center justify-center text-white font-bold shadow-inner text-lg">
-            {post.authorName?.charAt(0) || 'U'}
-          </div>
+          <Link to={`/${post.userName}`} className="w-11 h-11 bg-gradient-to-tr from-blue-500 via-indigo-500 to-purple-500 rounded-full flex items-center justify-center text-white font-bold shadow-inner text-lg hover:scale-105 transition-transform cursor-pointer">
+            {post.userName?.charAt(0).toUpperCase() || 'U'}
+          </Link>
           <div>
-            <h3 className="font-semibold text-gray-900 text-[15px] hover:underline cursor-pointer">
-              {post.authorName || 'Unknown User'}
-            </h3>
+            <Link to={`/${post.userName}`}>
+              <h3 className="font-semibold text-gray-900 text-[15px] hover:underline cursor-pointer">
+                {post.userName || 'Unknown User'}
+              </h3>
+            </Link>
             <p className="text-xs text-gray-500 font-medium">{formatDate(post.createdAt)}</p>
           </div>
         </div>
@@ -196,7 +203,7 @@ const PostCard = ({ post }) => {
             <span className="text-sm">Like</span>
           </button>
 
-          <button
+          {/* <button
             onClick={handleDislike}
             className={`flex-1 flex items-center justify-center space-x-2 py-2.5 mx-1 rounded-xl transition-all duration-200 ${
               isDisliked 
@@ -206,7 +213,7 @@ const PostCard = ({ post }) => {
           >
             <HandThumbDownIcon className="h-5 w-5" />
             <span className="text-sm">Dislike</span>
-          </button>
+          </button> */}
 
           <button
             onClick={() => setShowComments(!showComments)}
@@ -267,17 +274,20 @@ const PostCard = ({ post }) => {
                 const isYou = user?.id === comment.commentorId;
                 const displayName = isYou ? 'You' : (comment.commentorUserName || 'Unknown User');
                 const initial = displayName.charAt(0).toUpperCase();
+                const profileLink = `/${isYou ? user?.userName : comment.commentorUserName}`;
 
                 return (
                   <div key={index} className="flex space-x-3 group">
-                    <div className="w-8 h-8 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-full flex items-center justify-center text-white font-bold text-xs shadow-inner flex-shrink-0 mt-1">
+                    <Link to={profileLink} className="w-8 h-8 bg-gradient-to-br from-emerald-400 to-teal-500 rounded-full flex items-center justify-center text-white font-bold text-xs shadow-inner flex-shrink-0 mt-1 hover:scale-105 transition-transform cursor-pointer">
                       {initial}
-                    </div>
+                    </Link>
                     <div className="flex-1">
                       <div className="bg-white border border-gray-100 shadow-sm rounded-2xl rounded-tl-none px-4 py-2.5 inline-block max-w-[90%]">
-                        <p className="font-semibold text-[13px] text-gray-900 mb-0.5 hover:underline cursor-pointer">
-                          {displayName}
-                        </p>
+                        <Link to={profileLink}>
+                          <p className="font-semibold text-[13px] text-gray-900 mb-0.5 hover:underline cursor-pointer">
+                            {displayName}
+                          </p>
+                        </Link>
                         <p className="text-gray-700 text-sm">{comment.text}</p>
                       </div>
                       <div className="flex items-center space-x-4 mt-1.5 ml-2 text-[11px] font-medium text-gray-400">

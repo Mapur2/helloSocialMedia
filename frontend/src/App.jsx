@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ChatProvider } from './contexts/ChatContext';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -13,33 +14,17 @@ import Messages from './pages/Messages';
 import Followers from './pages/Followers';
 
 const AuthenticatedApp = () => {
-  const [activeTab, setActiveTab] = useState('home');
-  const { isAuthenticated } = useAuth();
-
-  if (!isAuthenticated) {
-    return null; // This shouldn't happen as we handle auth in App component
-  }
-
-  const renderContent = () => {
-    switch (activeTab) {
-      case 'home':
-        return <Home />;
-      case 'profile':
-        return <Profile />;
-      case 'messages':
-        return <Messages />;
-      case 'followers':
-        return <Followers />;
-      default:
-        return <Home />;
-    }
-  };
-
   return (
     <div className="min-h-screen bg-gray-100">
-      <Navbar activeTab={activeTab} setActiveTab={setActiveTab} />
+      <Navbar />
       <main className="py-6">
-        {renderContent()}
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/messages" element={<Messages />} />
+          <Route path="/followers" element={<Followers />} />
+          <Route path="/:username" element={<Profile />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
       </main>
     </div>
   );
@@ -64,7 +49,9 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <ChatProvider>
-          <AppContent />
+          <Router>
+            <AppContent />
+          </Router>
         </ChatProvider>
       </AuthProvider>
     </QueryClientProvider>

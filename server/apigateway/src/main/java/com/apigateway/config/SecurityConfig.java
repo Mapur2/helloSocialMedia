@@ -29,7 +29,7 @@ public class SecurityConfig {
                 .securityContextRepository(contextRepo)
                 .authorizeExchange(exchange -> exchange
                         .pathMatchers(HttpMethod.OPTIONS).permitAll()
-                        .pathMatchers("/api/users/login", "/api/users/register", "/eureka/**").permitAll()
+                        .pathMatchers("/api/users/login", "/api/users/register","/api/users/username/**" , "/eureka/**").permitAll()
                         .anyExchange().authenticated()
                 )
                 .exceptionHandling(e -> e.authenticationEntryPoint(jwtAuthenticationEntryPoint))

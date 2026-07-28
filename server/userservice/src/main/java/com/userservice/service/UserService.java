@@ -27,6 +27,7 @@ public class UserService {
         UserResponse res = new UserResponse();
         res.setEmail(user.getEmail());
         res.setId(user.getId());
+        res.setUserName(user.getUserName());
         res.setPassword(user.getPassword());
         res.setFirstName(user.getFirstName());
         res.setLastName(user.getLastName());
@@ -74,6 +75,7 @@ public class UserService {
         res.setLastName(user.getLastName());
         res.setCreatedAt(user.getCreatedAt());
         res.setUpdatedAt(user.getUpdatedAt());
+        res.setUserName(user.getUserName());
         return res;
     }
 
@@ -95,6 +97,10 @@ public class UserService {
             userFollowerResponses.add(userResponse);
         }
         return new UserFollowerList(userFollowerResponses);
+    }
+
+    public User getUserByUsername(String username){
+        return userRepo.findByUserName(username);
     }
 
     public Usernames getUsernames(List<String> userIds){

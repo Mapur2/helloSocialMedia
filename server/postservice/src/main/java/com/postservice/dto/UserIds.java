@@ -1,12 +1,14 @@
-package com.followerservice.dto;
+package com.postservice.dto;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-public class FollowerDTO {
-    private String followUserId;
+public class UserIds {
+    private List<String> ids;
 }

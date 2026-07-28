@@ -22,11 +22,11 @@ public class Follower {
     @GeneratedValue(strategy = GenerationType.UUID)
     private String id;
 
-    @Column( nullable = false)
-    private String followerId;
+    @Column(nullable = false)
+    private String followerId;     // the user who is following
 
     @Column(nullable = false)
-    private String followingId;
+    private String followingId;    // the user being followed
 
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt = LocalDateTime.now();

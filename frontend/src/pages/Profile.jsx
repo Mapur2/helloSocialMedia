@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
+import { useParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { useGetPosts } from '../hooks/usePosts';
-import { useGetFollowers } from '../hooks/useSocial';
+import { useGetUserPosts } from '../hooks/usePosts';
+import { useGetFollowers, useGetUserProfile, useFollowUser, useUnfollowUser, useCheckFollowStatus, useGetFollowing } from '../hooks/useSocial';
 import PostCard from '../components/posts/PostCard';
 import { 
   UserIcon, 
@@ -12,10 +13,39 @@ import {
 } from '@heroicons/react/24/outline';
 
 const Profile = () => {
+  const { username } = useParams();
   const { user } = useAuth();
-  const { data: userPosts = [], isLoading: loading } = useGetPosts();
-  const { data: userFollowers = [] } = useGetFollowers();
+  
+  const profileUsername = username || user?.userName;
+  const isOwnProfile = user?.userName === profileUsername;
+
+  const { data: userProfile, isLoading: isProfileLoading } = useGetUserProfile(profileUsername);
+  const displayUser = isOwnProfile ? user : userProfile;
+
+  const { data: userPosts = [], isLoading: loading } = useGetUserPosts(displayUser?.id);
+  const { data: userFollowers = [] } = useGetFollowers(displayUser?.id);
+  const { data: userFollowing = [] } = useGetFollowing(displayUser?.id);
+  
+  // Only check follow status if viewing someone else's profile
+  const { data: isFollowingUser = false } = useCheckFollowStatus(isOwnProfile ? null : displayUser?.id);
+  
+  const { mutateAsync: followUser, isPending: isFollowing } = useFollowUser();
+  const { mutateAsync: unfollowUser, isPending: isUnfollowing } = useUnfollowUser();
+  
   const [activeTab, setActiveTab] = useState('posts');
+
+  const handleFollowAction = async () => {
+    if (!displayUser?.id) return;
+    try {
+      if (isFollowingUser) {
+        await unfollowUser(displayUser.id);
+      } else {
+        await followUser(displayUser.id);
+      }
+    } catch (error) {
+      console.error("Failed to toggle follow status:", error);
+    }
+  };
 
   const stats = [
     { 
@@ -29,6 +59,12 @@ const Profile = () => {
       value: userFollowers.length, 
       icon: UsersIcon,
       key: 'followers'
+    },
+    { 
+      name: 'Following', 
+      value: userFollowing.length, 
+      icon: UsersIcon,
+      key: 'following'
     }
   ];
 
@@ -44,7 +80,11 @@ const Profile = () => {
           {/* Profile Picture */}
           <div className="absolute -top-16 left-6">
             <div className="w-32 h-32 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full border-4 border-white flex items-center justify-center text-white text-4xl font-bold shadow-lg">
-              {user?.firstName?.charAt(0)}{user?.lastName?.charAt(0)}
+              {displayUser ? (
+                <>{displayUser?.firstName?.charAt(0)}{displayUser?.lastName?.charAt(0)}</>
+              ) : (
+                <>{profileUsername?.charAt(0).toUpperCase()}</>
+              )}
             </div>
           </div>
           
@@ -53,30 +93,57 @@ const Profile = () => {
             <div className="flex flex-col md:flex-row md:items-center md:justify-between">
               <div>
                 <h1 className="text-3xl font-bold text-gray-900 mb-2">
-                  {user?.firstName} {user?.lastName}
+                  {displayUser ? `${displayUser.firstName} ${displayUser.lastName}` : profileUsername}
                 </h1>
-                <p className="text-lg text-gray-600 mb-1">@{user?.userName}</p>
+                <p className="text-lg text-gray-600 mb-1">@{profileUsername}</p>
                 
-                <div className="flex items-center text-gray-500 mb-4">
-                  <EnvelopeIcon className="h-4 w-4 mr-2" />
-                  <span className="text-sm">{user?.email}</span>
-                </div>
-                
-                <div className="flex items-center text-gray-500">
-                  <CalendarIcon className="h-4 w-4 mr-2" />
-                  <span className="text-sm">
-                    Joined {new Date(user?.createdAt || Date.now()).toLocaleDateString('en-US', { 
-                      month: 'long', 
-                      year: 'numeric' 
-                    })}
-                  </span>
-                </div>
+                {(isOwnProfile || displayUser) && (
+                  <>
+                    {displayUser?.email && (
+                      <div className="flex items-center text-gray-500 mb-4">
+                        <EnvelopeIcon className="h-4 w-4 mr-2" />
+                        <span className="text-sm">{displayUser.email}</span>
+                      </div>
+                    )}
+                    
+                    {displayUser?.createdAt && (
+                      <div className="flex items-center text-gray-500">
+                        <CalendarIcon className="h-4 w-4 mr-2" />
+                        <span className="text-sm">
+                          Joined {new Date(displayUser.createdAt || Date.now()).toLocaleDateString('en-US', { 
+                            month: 'long', 
+                            year: 'numeric' 
+                          })}
+                        </span>
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
               
-              <div className="mt-4 md:mt-0">
-                <button className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors">
-                  Edit Profile
-                </button>
+              <div className="mt-4 md:mt-0 flex space-x-3">
+                {isOwnProfile ? (
+                  <button className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+                    Edit Profile
+                  </button>
+                ) : (
+                  <>
+                    <button 
+                      onClick={handleFollowAction}
+                      disabled={isFollowing || isUnfollowing}
+                      className={`px-6 py-2 rounded-lg font-medium shadow-sm transition-colors disabled:opacity-50 ${
+                        isFollowingUser
+                          ? 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                          : 'bg-blue-600 text-white hover:bg-blue-700'
+                      }`}
+                    >
+                      {isFollowing || isUnfollowing ? 'Updating...' : isFollowingUser ? 'Unfollow' : 'Follow'}
+                    </button>
+                    <button className="bg-white text-blue-600 border border-gray-200 px-6 py-2 rounded-lg hover:bg-gray-50 transition-colors shadow-sm font-medium">
+                      Message
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -169,6 +236,36 @@ const Profile = () => {
                             {follower.firstName} {follower.lastName}
                           </p>
                           <p className="text-sm text-gray-500">@{follower.userName}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'following' && (
+            <div>
+              {userFollowing.length === 0 ? (
+                <div className="text-center py-8">
+                  <UsersIcon className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">Not following anyone yet</h3>
+                  <p className="text-gray-500">Discover and follow people to see their updates here!</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {userFollowing.map((user) => (
+                    <div key={user.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-10 h-10 bg-gradient-to-r from-purple-500 to-pink-600 rounded-full flex items-center justify-center text-white font-medium">
+                          {user.firstName?.charAt(0)}{user.lastName?.charAt(0)}
+                        </div>
+                        <div>
+                          <p className="font-medium text-gray-900">
+                            {user.firstName} {user.lastName}
+                          </p>
+                          <p className="text-sm text-gray-500">@{user.userName}</p>
                         </div>
                       </div>
                     </div>

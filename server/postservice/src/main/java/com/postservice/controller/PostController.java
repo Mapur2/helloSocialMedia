@@ -8,12 +8,10 @@ import com.postservice.entity.Post;
 import com.postservice.entity.Visibility;
 import com.postservice.service.ImageUploadService;
 import com.postservice.service.PostService;
-import jakarta.websocket.server.PathParam;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -49,7 +47,9 @@ public class PostController {
 
     // Get all posts of a specific user by userId
     @GetMapping("/user")
-    public ResponseEntity<Response> getAllPostsByUser(@PathParam("userId") String userId,@RequestHeader("X-User-Id") String xuserId) {
+    public ResponseEntity<Response> getAllPostsByUser(
+            @RequestParam(value = "user", required = false) String userId,
+            @RequestHeader(value = "X-User-Id", required = false) String xuserId) {
         try {
             String id=null;
             if(userId==null)

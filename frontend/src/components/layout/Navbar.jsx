@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { NavLink, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 import { 
   HomeIcon, 
@@ -11,20 +12,22 @@ import {
   XMarkIcon
 } from '@heroicons/react/24/outline';
 
-const Navbar = ({ activeTab, setActiveTab }) => {
+const Navbar = () => {
   const { user, logout } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const navigate = useNavigate();
 
   const navigation = [
-    { name: 'Home', icon: HomeIcon, key: 'home' },
-    { name: 'Profile', icon: UserIcon, key: 'profile' },
-    { name: 'Messages', icon: ChatBubbleLeftRightIcon, key: 'messages' },
-    { name: 'Followers', icon: UsersIcon, key: 'followers' }
+    { name: 'Home', icon: HomeIcon, path: '/' },
+    { name: 'Profile', icon: UserIcon, path: `/${user?.userName}` },
+    { name: 'Messages', icon: ChatBubbleLeftRightIcon, path: '/messages' },
+    { name: 'Followers', icon: UsersIcon, path: '/followers' }
   ];
 
   const handleLogout = () => {
     logout();
     setIsMobileMenuOpen(false);
+    navigate('/');
   };
 
   return (
@@ -32,14 +35,14 @@ const Navbar = ({ activeTab, setActiveTab }) => {
       <div className="max-w-7xl mx-auto px-4">
         <div className="flex justify-between h-16">
           <div className="flex items-center">
-            <div className="flex-shrink-0 flex items-center">
+            <Link to="/" className="flex-shrink-0 flex items-center">
               <div className="bg-gradient-to-r from-blue-500 to-purple-600 text-white px-3 py-1 rounded-lg font-bold text-xl">
                 SM
               </div>
               <span className="ml-2 text-xl font-bold text-gray-900 hidden sm:block">
                 Social Media
               </span>
-            </div>
+            </Link>
           </div>
 
           {/* Desktop Navigation */}
@@ -47,18 +50,18 @@ const Navbar = ({ activeTab, setActiveTab }) => {
             {navigation.map((item) => {
               const Icon = item.icon;
               return (
-                <button
-                  key={item.key}
-                  onClick={() => setActiveTab(item.key)}
-                  className={`flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 ${
-                    activeTab === item.key
+                <NavLink
+                  key={item.name}
+                  to={item.path}
+                  className={({ isActive }) => `flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 ${
+                    isActive
                       ? 'text-blue-600 bg-blue-50'
                       : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
                   }`}
                 >
                   <Icon className="h-5 w-5 mr-1" />
                   {item.name}
-                </button>
+                </NavLink>
               );
             })}
           </div>
@@ -105,21 +108,19 @@ const Navbar = ({ activeTab, setActiveTab }) => {
             {navigation.map((item) => {
               const Icon = item.icon;
               return (
-                <button
-                  key={item.key}
-                  onClick={() => {
-                    setActiveTab(item.key);
-                    setIsMobileMenuOpen(false);
-                  }}
-                  className={`flex items-center w-full px-3 py-2 rounded-md text-base font-medium transition-colors duration-200 ${
-                    activeTab === item.key
+                <NavLink
+                  key={item.name}
+                  to={item.path}
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className={({ isActive }) => `flex items-center w-full px-3 py-2 rounded-md text-base font-medium transition-colors duration-200 ${
+                    isActive
                       ? 'text-blue-600 bg-blue-50'
                       : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
                   }`}
                 >
                   <Icon className="h-5 w-5 mr-3" />
                   {item.name}
-                </button>
+                </NavLink>
               );
             })}
             <div className="border-t pt-4 mt-4">
