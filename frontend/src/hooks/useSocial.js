@@ -133,3 +133,79 @@ export const useGetUserProfile = (username) => {
     enabled: !!username
   });
 };
+
+export const useUploadProfilePicture = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (mediaFile) => {
+      if (!mediaFile) {
+        throw new Error("No media file provided");
+      }
+
+      // Step 1: Get presigned upload URL
+      const uploadUrlResponse = await axios.post('http://localhost:8079/api/media/upload-url', {
+        filename: mediaFile.name,
+        contentType: mediaFile.type,
+        mediaType: 'image'
+      });
+      
+      const uploadData = uploadUrlResponse.data.data || uploadUrlResponse.data;
+      const uploadUrl = uploadData.uploadUrl;
+      const mediaId = uploadData.mediaId;
+
+      // Step 2: Upload media directly to S3 via presigned URL
+      const uploadResult = await fetch(uploadUrl, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': mediaFile.type
+        },
+        body: mediaFile
+      });
+      
+      if (!uploadResult.ok) {
+          throw new Error(`Failed to upload to S3: ${uploadResult.statusText}`);
+      }
+
+      // Step 3: Mark upload as complete
+      await axios.post(`http://localhost:8079/api/media/${mediaId}/complete`);
+
+      // Step 4: Associate profile picture with user
+      const response = await axios.post(`http://localhost:8079/api/users/profile-picture/${mediaId}`);
+      return { ...response.data, mediaId };
+    },
+    onSuccess: () => {
+      // Invalidate queries to trigger refetch
+      queryClient.invalidateQueries({ queryKey: ['userProfile'] });
+      queryClient.invalidateQueries({ queryKey: ['profilePicture'] });
+    }
+  });
+};
+
+export const useGetProfilePictureUrl = (userId) => {
+  return useQuery({
+    queryKey: ['profilePicture', userId],
+    queryFn: async () => {
+      try {
+        // First get the profile picture metadata which contains the mediaId
+        const ppResponse = await axios.get(`http://localhost:8079/api/users/profile-picture/${userId}`);
+        const mediaId = ppResponse.data?.mediaId;
+        
+        if (!mediaId) return null;
+        
+        // Then get the S3 URLs for this mediaId
+        const urlResponse = await axios.get(`http://localhost:8079/api/media/${mediaId}/urls`);
+        const urlData = urlResponse.data.data || urlResponse.data;
+        return urlData?.resized || urlData?.original || urlData?.url || null;
+      } catch (error) {
+        // Handle 404s gracefully (user doesn't have a profile picture yet)
+        if (error.response && error.response.status === 404) {
+          return null;
+        }
+        throw error;
+      }
+    },
+    enabled: !!userId
+  });
+};
+

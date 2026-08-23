@@ -1,6 +1,7 @@
 package com.userservice.controller;
 
 import com.userservice.dto.*;
+import com.userservice.entity.ProfilePicture;
 import com.userservice.entity.User;
 import com.userservice.service.AuthService;
 import com.userservice.service.UserService;
@@ -89,8 +90,36 @@ public class UserController {
         return new ResponseEntity<>(response, HttpStatus.OK);
     }
 
+    @PostMapping("/profile-picture/{mediaId}")
+    public ResponseEntity<Map<String, Object>> setProfilePicture(@PathVariable String mediaId){
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        User user = userService.getUserByEmailId(email);
+
+        userService.setProfilePicture(user.getId(), mediaId);
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", true);
+        response.put("message", "Profile picture updated successfully");
+
+        return new ResponseEntity<>(response, HttpStatus.OK);
+    }
+
     @PostMapping("/usernames")
     public Usernames getUsernames(@RequestBody UserIds userIds) {
         return userService.getUsernames(userIds.getIds());
+    }
+
+    @GetMapping("/profile-picture/{userId}")
+    public ResponseEntity<ProfilePicture> getProfilePicture(@PathVariable String userId) {
+        ProfilePicture profilePicture = userService.getProfilePicture(userId);
+        if (profilePicture == null) {
+            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+        }
+        return new ResponseEntity<>(profilePicture, HttpStatus.OK);
+    }
+
+    @PostMapping("/profile-pictures")
+    public ResponseEntity<Map<String, String>> getProfilePictures(@RequestBody UserIds userIds) {
+        return ResponseEntity.ok(userService.getProfilePictureMediaIds(userIds.getIds()));
     }
 }

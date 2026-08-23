@@ -146,6 +146,23 @@ public class PostService {
         }
         return Map.of();
     }
+
+    private Map<String, String> fetchProfilePictureMediaIds(Set<String> userIds){
+        if(userIds.isEmpty())
+            return Map.of();
+        try {
+            String url = userserviceUrl+"/api/users/profile-pictures";
+            ResponseEntity<Map> response = restTemplate.postForEntity(url, new UserIds(userIds.stream().toList()), Map.class);
+            if (response.getBody() != null) {
+                return (Map<String, String>) response.getBody();
+            }
+        }
+        catch (Exception e){
+            log.error("Could not fetch profile pictures from user service: {}", e.getMessage());
+        }
+        return Map.of();
+    }
+
     private Map<String, Boolean> fetchLikedStatus(String userId, List<String> postIds) {
         if (userId == null || userId.isBlank() || postIds.isEmpty()) return Map.of();
 
@@ -167,12 +184,21 @@ public class PostService {
 
     // ─── Private: Map posts to DTOs ──────────────────────────────────────────
 
-    private List<PostResponseDTO> mapPostsToDTOs(List<Post> posts, Map<String, Boolean> likedMap, Map<String,String> userNameMap) {       // batch fetch all media in one query — no N+1
-        List<String> mediaIds = posts.stream()
+    private List<PostResponseDTO> mapPostsToDTOs(List<Post> posts, Map<String, Boolean> likedMap, Map<String,String> userNameMap) {
+        Set<String> userIds = posts.stream().map(Post::getUserId).collect(Collectors.toSet());
+        Map<String, String> profilePicMediaIds = fetchProfilePictureMediaIds(userIds);
+
+        List<String> mediaIds = new ArrayList<>();
+        posts.stream()
                 .map(Post::getMediaId)
                 .filter(id -> id != null && !id.isEmpty())
                 .distinct()
-                .toList();
+                .forEach(mediaIds::add);
+        
+        profilePicMediaIds.values().stream()
+                .filter(id -> id != null && !id.isEmpty())
+                .distinct()
+                .forEach(mediaIds::add);
 
         Map<String, MediaEntity> mediaMap = new HashMap<>();
         if (!mediaIds.isEmpty()) {
@@ -205,9 +231,31 @@ public class PostService {
                         }
                     }
 
+                    String profilePicUrl = null;
+                    String profileMediaId = profilePicMediaIds.get(post.getUserId());
+                    if (profileMediaId != null) {
+                        MediaEntity media = mediaMap.get(profileMediaId);
+                        if (media != null && media.getStatus().equalsIgnoreCase("ready")) {
+                            if (media.getProcessedKeysJson() != null && !media.getProcessedKeysJson().isEmpty()) {
+                                try {
+                                    ObjectMapper mapper = new ObjectMapper();
+                                    Map<String, String> rawKeys = mapper.readValue(
+                                            media.getProcessedKeysJson(),
+                                            new TypeReference<HashMap<String, String>>() {}
+                                    );
+                                    Map<String, String> urls = mediaService.resolveUrls(rawKeys);
+                                    profilePicUrl = urls.getOrDefault("resized", urls.getOrDefault("original", urls.get("url")));
+                                } catch (Exception ex) {
+                                    log.error("Failed to parse processedKeysJson for profile media: {}", media.getId(), ex);
+                                }
+                            }
+                        }
+                    }
+
                     return new PostResponseDTO(
                             post.getId(),
                             post.getContent(),
+                            post.getUserId(),
                             mediaUrls,
                             post.getVisibility(),
                             post.getLikeCount(),
@@ -217,7 +265,8 @@ public class PostService {
                             post.getUpdatedAt(),
                             post.getIsDeleted(),
                             likedMap.getOrDefault(post.getId(), false),
-                            userNameMap.get(post.getUserId())
+                            userNameMap.get(post.getUserId()),
+                            profilePicUrl
                     );
                 })
                 .toList();

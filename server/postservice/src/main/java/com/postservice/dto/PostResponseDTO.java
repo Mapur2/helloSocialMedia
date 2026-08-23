@@ -11,7 +11,7 @@ import java.util.Map;
 public record PostResponseDTO(
         String id,
         String content,
-
+        String userId,
         Map<String, String> media,
         Visibility visibility,
         Integer likeCount,
@@ -21,7 +21,8 @@ public record PostResponseDTO(
         LocalDateTime updatedAt,
         Boolean isDeleted,
         Boolean isLikedByUser,
-        String userName
+        String userName,
+        String userProfilePicture
 )
 {
     public PostResponseDTO {

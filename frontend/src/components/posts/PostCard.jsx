@@ -116,8 +116,12 @@ const PostCard = ({ post }) => {
       {/* Post Header */}
       <div className="p-5 flex items-center justify-between">
         <div className="flex items-center space-x-4">
-          <Link to={`/${post.userName}`} className="w-11 h-11 bg-gradient-to-tr from-blue-500 via-indigo-500 to-purple-500 rounded-full flex items-center justify-center text-white font-bold shadow-inner text-lg hover:scale-105 transition-transform cursor-pointer">
-            {post.userName?.charAt(0).toUpperCase() || 'U'}
+          <Link to={`/${post.userName}`} className="w-11 h-11 bg-gradient-to-tr from-blue-500 via-indigo-500 to-purple-500 rounded-full flex items-center justify-center text-white font-bold shadow-inner text-lg hover:scale-105 transition-transform cursor-pointer overflow-hidden">
+            {post.userProfilePicture ? (
+              <img src={post.userProfilePicture} alt={post.userName} className="w-full h-full object-cover" />
+            ) : (
+              post.userName?.charAt(0).toUpperCase() || 'U'
+            )}
           </Link>
           <div>
             <Link to={`/${post.userName}`}>

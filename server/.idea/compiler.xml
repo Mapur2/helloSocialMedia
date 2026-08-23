@@ -52,6 +52,15 @@
         <module name="postInteractionService" />
         <module name="followerservice" />
       </profile>
+      <profile name="Annotation profile for recommendationservice" enabled="true">
+        <sourceOutputDir name="target/generated-sources/annotations" />
+        <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
+        <outputRelativeToContentRoot value="true" />
+        <processorPath useClasspath="false">
+          <entry name="$MAVEN_REPOSITORY$/org/projectlombok/lombok/1.18.46/lombok-1.18.46.jar" />
+        </processorPath>
+        <module name="recommendationservice" />
+      </profile>
     </annotationProcessing>
   </component>
   <component name="JavacSettings">
@@ -61,6 +70,7 @@
       <module name="followerservice" options="-parameters" />
       <module name="postInteractionService" options="-parameters" />
       <module name="postservice" options="-parameters" />
+      <module name="recommendationservice" options="-parameters" />
       <module name="userservice" options="-parameters" />
     </option>
   </component>

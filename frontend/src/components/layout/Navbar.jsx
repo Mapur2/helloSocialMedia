@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { NavLink, Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import { useGetProfilePictureUrl } from '../../hooks/useSocial';
 import { 
   HomeIcon, 
   UserIcon, 
@@ -16,10 +17,11 @@ const Navbar = () => {
   const { user, logout } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const navigate = useNavigate();
+  const { data: profilePicUrl } = useGetProfilePictureUrl(user?.id);
 
   const navigation = [
     { name: 'Home', icon: HomeIcon, path: '/' },
-    { name: 'Profile', icon: UserIcon, path: `/${user?.userName}` },
+    { name: 'Profile', icon: UserIcon, path: `/${user?.userName || user?.username}` },
     { name: 'Messages', icon: ChatBubbleLeftRightIcon, path: '/messages' },
     { name: 'Followers', icon: UsersIcon, path: '/followers' }
   ];
@@ -69,8 +71,12 @@ const Navbar = () => {
           {/* User Menu */}
           <div className="hidden md:flex items-center space-x-4">
             <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-medium">
-                {user?.firstName?.charAt(0)}{user?.lastName?.charAt(0)}
+              <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-medium overflow-hidden">
+                {profilePicUrl ? (
+                  <img src={profilePicUrl} alt="Profile" className="w-full h-full object-cover" />
+                ) : (
+                  <>{user?.firstName?.charAt(0)}{user?.lastName?.charAt(0)}</>
+                )}
               </div>
               <span className="text-sm font-medium text-gray-700">
                 {user?.firstName} {user?.lastName}
@@ -125,8 +131,12 @@ const Navbar = () => {
             })}
             <div className="border-t pt-4 mt-4">
               <div className="flex items-center px-3 py-2">
-                <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-medium">
-                  {user?.firstName?.charAt(0)}{user?.lastName?.charAt(0)}
+                <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-medium overflow-hidden">
+                  {profilePicUrl ? (
+                    <img src={profilePicUrl} alt="Profile" className="w-full h-full object-cover" />
+                  ) : (
+                    <>{user?.firstName?.charAt(0)}{user?.lastName?.charAt(0)}</>
+                  )}
                 </div>
                 <span className="ml-3 text-base font-medium text-gray-700">
                   {user?.firstName} {user?.lastName}

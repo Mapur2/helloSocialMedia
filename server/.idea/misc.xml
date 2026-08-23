@@ -10,6 +10,7 @@
         <option value="$PROJECT_DIR$/followerservice/pom.xml" />
         <option value="$PROJECT_DIR$/postInteractionService/pom.xml" />
         <option value="$PROJECT_DIR$/chatservice/pom.xml" />
+        <option value="$PROJECT_DIR$/recommendationservice/pom.xml" />
       </list>
     </option>
   </component>

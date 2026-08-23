@@ -92,4 +92,26 @@ public class InteractController {
         }
     }
 
+    @GetMapping("/interactions")
+    public ResponseEntity<Response<List<String>>> getPostsLikedbyOrCommentedOnByUser(
+            @RequestParam(value = "userId", required = false) String userId,
+            @RequestHeader(value = "X-User-Id", required = false) String xuserId) {
+        try {
+            String targetUserId = (userId != null && !userId.isBlank()) ? userId : xuserId;
+            if (targetUserId == null || targetUserId.isBlank()) {
+                return new ResponseEntity<>(
+                        new Response<>(false, "userId parameter or X-User-Id header is required", null),
+                        HttpStatus.BAD_REQUEST);
+            }
+
+            List<String> postIds = commentService.getPostsLikedOrCommentedByUser(targetUserId);
+            return new ResponseEntity<>(
+                    new Response<>(true, "Fetched interacted post IDs successfully", postIds),
+                    HttpStatus.OK);
+        } catch (Exception e) {
+            return new ResponseEntity<>(
+                    new Response<>(false, e.getMessage(), null),
+                    HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
 }

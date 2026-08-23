@@ -1,0 +1,25 @@
+spring:
+  application:
+    name: recommendationservice
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://avnadmin:AVNS_gRyATXAHOgD_LF6tXX1@fastfoods-fastfoods.j.aivencloud.com:26790/defaultdb?ssl-mode=REQUIRED
+    username: avnadmin
+    password: AVNS_gRyATXAHOgD_LF6tXX1
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+
+server:
+  port: 8085
+
+services:
+  post:
+    url: http://localhost:8081
+
+  follower:
+    url: http://localhost:8082
+
+  interaction:
+    url: http://localhost:8083

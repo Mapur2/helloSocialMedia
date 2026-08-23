@@ -1,7 +1,9 @@
 package com.userservice.service;
 
 import com.userservice.dto.*;
+import com.userservice.entity.ProfilePicture;
 import com.userservice.entity.User;
+import com.userservice.repository.ProfilePictureRepo;
 import com.userservice.repository.UserRepo;
 import jakarta.validation.constraints.Email;
 import lombok.extern.slf4j.Slf4j;
@@ -12,12 +14,16 @@ import org.springframework.stereotype.Service;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @Slf4j
 public class UserService {
     @Autowired
     private UserRepo userRepo;
+
+    @Autowired
+    private ProfilePictureRepo profilePictureRepo;
 
     @Autowired
     private EmailService emailService;
@@ -114,5 +120,35 @@ public class UserService {
         Usernames usernames =new Usernames();
         usernames.setUsers(h);
         return usernames;
+    }
+
+    public void setProfilePicture(String userId, String mediaId) {
+        ProfilePicture profilePicture = profilePictureRepo.findByUserId(userId).orElse(new ProfilePicture());
+        profilePicture.setUserId(userId);
+
+        if (profilePicture.getMediaId() != null && !profilePicture.getMediaId().equals(mediaId)) {
+            if (profilePicture.getPreviousMediaIds() == null) {
+                profilePicture.setPreviousMediaIds(new ArrayList<>());
+            }
+            profilePicture.getPreviousMediaIds().add(profilePicture.getMediaId());
+        }
+        profilePicture.setMediaId(mediaId);
+        profilePictureRepo.save(profilePicture);
+    }
+
+    public ProfilePicture getProfilePicture(String userId) {
+        return profilePictureRepo.findByUserId(userId).orElse(null);
+    }
+
+    public Map<String, String> getProfilePictureMediaIds(List<String> userIds) {
+        Map<String, String> result = new HashMap<>();
+        for (String id : userIds) {
+            profilePictureRepo.findByUserId(id).ifPresent(p -> {
+                if (p.getMediaId() != null) {
+                    result.put(id, p.getMediaId());
+                }
+            });
+        }
+        return result;
     }
 }

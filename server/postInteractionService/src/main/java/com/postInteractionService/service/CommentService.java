@@ -182,4 +182,14 @@ public class CommentService {
         return result;
     }
 
+    public List<String> getPostsLikedOrCommentedByUser(String userId) {
+        if (userId == null || userId.isBlank()) {
+            return Collections.emptyList();
+        }
+        Set<String> postIds = new HashSet<>();
+        postIds.addAll(likeRepo.findDistinctPostIdsByUserId(userId));
+        postIds.addAll(commentRepo.findDistinctPostIdsByUserId(userId));
+        return new ArrayList<>(postIds);
+    }
+
 }

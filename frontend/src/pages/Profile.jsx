@@ -2,22 +2,24 @@ import React, { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useGetUserPosts } from '../hooks/usePosts';
-import { useGetFollowers, useGetUserProfile, useFollowUser, useUnfollowUser, useCheckFollowStatus, useGetFollowing } from '../hooks/useSocial';
+import { useGetFollowers, useGetUserProfile, useFollowUser, useUnfollowUser, useCheckFollowStatus, useGetFollowing, useGetProfilePictureUrl, useUploadProfilePicture } from '../hooks/useSocial';
 import PostCard from '../components/posts/PostCard';
 import { 
   UserIcon, 
   CalendarIcon, 
   EnvelopeIcon,
   UsersIcon,
-  DocumentTextIcon
+  DocumentTextIcon,
+  CameraIcon
 } from '@heroicons/react/24/outline';
 
 const Profile = () => {
   const { username } = useParams();
   const { user } = useAuth();
   
-  const profileUsername = username || user?.userName;
-  const isOwnProfile = user?.userName === profileUsername;
+  const authUsername = user?.userName || user?.username;
+  const profileUsername = (username && username !== 'undefined') ? username : authUsername;
+  const isOwnProfile = authUsername === profileUsername;
 
   const { data: userProfile, isLoading: isProfileLoading } = useGetUserProfile(profileUsername);
   const displayUser = isOwnProfile ? user : userProfile;
@@ -32,7 +34,21 @@ const Profile = () => {
   const { mutateAsync: followUser, isPending: isFollowing } = useFollowUser();
   const { mutateAsync: unfollowUser, isPending: isUnfollowing } = useUnfollowUser();
   
+  const { data: profilePicUrl } = useGetProfilePictureUrl(displayUser?.id);
+  const { mutateAsync: uploadProfilePicture, isPending: isUploading } = useUploadProfilePicture();
+
   const [activeTab, setActiveTab] = useState('posts');
+
+  const handleFileChange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    try {
+      await uploadProfilePicture(file);
+    } catch (error) {
+      console.error("Failed to upload profile picture", error);
+      alert("Failed to upload profile picture. Please try again.");
+    }
+  };
 
   const handleFollowAction = async () => {
     if (!displayUser?.id) return;
@@ -79,11 +95,35 @@ const Profile = () => {
         <div className="relative px-6 pb-6">
           {/* Profile Picture */}
           <div className="absolute -top-16 left-6">
-            <div className="w-32 h-32 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full border-4 border-white flex items-center justify-center text-white text-4xl font-bold shadow-lg">
-              {displayUser ? (
-                <>{displayUser?.firstName?.charAt(0)}{displayUser?.lastName?.charAt(0)}</>
-              ) : (
-                <>{profileUsername?.charAt(0).toUpperCase()}</>
+            <div className="relative group">
+              <div className="w-32 h-32 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full border-4 border-white flex items-center justify-center text-white text-4xl font-bold shadow-lg overflow-hidden">
+                {profilePicUrl ? (
+                  <img src={profilePicUrl} alt="Profile" className="w-full h-full object-cover" />
+                ) : displayUser ? (
+                  <>{displayUser?.firstName?.charAt(0)}{displayUser?.lastName?.charAt(0)}</>
+                ) : (
+                  <>{profileUsername?.charAt(0).toUpperCase()}</>
+                )}
+              </div>
+              
+              {isOwnProfile && (
+                <label className={`absolute inset-0 flex flex-col items-center justify-center bg-black bg-opacity-50 text-white rounded-full cursor-pointer transition-opacity ${isUploading ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
+                  {isUploading ? (
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+                  ) : (
+                    <>
+                      <CameraIcon className="h-8 w-8 mb-1" />
+                      <span className="text-xs font-medium">Update</span>
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        className="hidden" 
+                        onChange={handleFileChange}
+                        disabled={isUploading}
+                      />
+                    </>
+                  )}
+                </label>
               )}
             </div>
           </div>
