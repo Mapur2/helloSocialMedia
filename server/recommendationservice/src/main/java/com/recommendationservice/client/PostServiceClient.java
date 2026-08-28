@@ -49,4 +49,33 @@ public class PostServiceClient {
 
         return response.getBody().getData();
     }
+
+    public List<PostResponseDTO> getRecommendationCandidates(String userId) {
+
+        String url = postServiceUrl + "/api/posts/recommendation-candidates?limit=100";
+        
+        HttpHeaders headers = new HttpHeaders();
+        if (userId != null) {
+            headers.set("X-USER-ID", userId);
+        }
+        HttpEntity<Void> entity = new HttpEntity<>(headers);
+
+        ResponseEntity<ApiResponse<List<PostResponseDTO>>> response =
+                restTemplate.exchange(
+                        url,
+                        HttpMethod.GET,
+                        entity,
+                        new ParameterizedTypeReference<
+                                ApiResponse<List<PostResponseDTO>>
+                                >() {}
+                );
+
+        if (response.getBody() == null ||
+                response.getBody().getData() == null) {
+
+            return List.of();
+        }
+
+        return response.getBody().getData();
+    }
 }

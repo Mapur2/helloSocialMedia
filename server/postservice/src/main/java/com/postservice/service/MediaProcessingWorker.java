@@ -23,6 +23,8 @@ public class MediaProcessingWorker {
 
     @Autowired private S3Client s3Client;
     @Autowired private MediaRepository repository;
+    @Autowired private MediaService mediaService;
+    @Autowired private CaptionService captionService;
 
     @Value("${minio.raw-bucket}")      private String rawBucket;
     @Value("${minio.processed-bucket}") private String processedBucket;
@@ -62,6 +64,17 @@ public class MediaProcessingWorker {
             repository.save(entity);
 
             System.out.println("Done processing: " + event.mediaId());
+
+            // 5. Trigger auto-captioning in background for images
+            if (!"video".equalsIgnoreCase(event.mediaType())) {
+                try {
+                    String keyResized = "processed/%s/resized.jpg".formatted(event.mediaId());
+                    String downloadUrl = mediaService.generateDownloadUrl(keyResized);
+                    captionService.generateCaptionForImage(event.mediaId(), downloadUrl);
+                } catch (Exception ex) {
+                    System.err.println("Failed to trigger captioning for " + event.mediaId() + ": " + ex.getMessage());
+                }
+            }
 
         } catch (Exception e) {
             System.err.println("Processing failed for " + event.mediaId() + ": " + e.getMessage());

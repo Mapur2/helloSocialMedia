@@ -7,15 +7,19 @@ import com.postservice.dto.PostResponseDTO;
 import com.postservice.dto.UserIds;
 import com.postservice.entity.MediaEntity;
 import com.postservice.entity.Post;
+import com.postservice.entity.Visibility;
 import com.postservice.repo.MediaRepository;
 import com.postservice.repo.PostRepo;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
+import javax.management.modelmbean.InvalidTargetObjectTypeException;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -40,11 +44,13 @@ public class PostService {
     @Value("${services.userservice.url}")
     private String userserviceUrl;
 
-    public Post savePost(Post post, String mediaId) {
-        if (mediaId != null && !mediaId.isEmpty()) {
-            mediaRepository.findById(mediaId)
-                    .orElseThrow(() -> new RuntimeException("Media not found: " + mediaId));
-            post.setMediaId(mediaId);
+    public Post savePost(Post post, List<String> mediaIds) {
+        if (mediaIds != null && !mediaIds.isEmpty()) {
+            mediaIds.forEach(id -> {
+                mediaRepository.findById(id)
+                        .orElseThrow(() -> new RuntimeException("Media not found: " + id));
+            });
+            post.setMediaIds(mediaIds);
         }
         postRepo.save(post);
         return post;
@@ -76,7 +82,7 @@ public class PostService {
     public List<PostResponseDTO> getPosts(String userId) {
         List<Post> posts = postRepo.findAll();
         if (posts.isEmpty()) return List.of();
-
+        posts = posts.stream().filter(e->!e.getIsDeleted()).toList();
         List<String> postIds = posts.stream()
                 .map(Post::getId)
                 .toList();
@@ -190,7 +196,8 @@ public class PostService {
 
         List<String> mediaIds = new ArrayList<>();
         posts.stream()
-                .map(Post::getMediaId)
+                .filter(p -> p.getMediaIds() != null)
+                .flatMap(p -> p.getMediaIds().stream())
                 .filter(id -> id != null && !id.isEmpty())
                 .distinct()
                 .forEach(mediaIds::add);
@@ -208,26 +215,30 @@ public class PostService {
 
         return posts.stream()
                 .map(post -> {
-                    Map<String, String> mediaUrls = new HashMap<>();
+                    List<Map<String, String>> mediaUrlsList = new ArrayList<>();
 
-                    if (post.getMediaId() != null && !post.getMediaId().isEmpty()) {
-                        MediaEntity media = mediaMap.get(post.getMediaId());
-                        if (media != null && media.getStatus().equalsIgnoreCase("ready")) {
-                            if (media.getProcessedKeysJson() != null
-                                    && !media.getProcessedKeysJson().isEmpty()) {
-                                try {
-                                    ObjectMapper mapper = new ObjectMapper();
-                                    Map<String, String> rawKeys = mapper.readValue(
-                                            media.getProcessedKeysJson(),
-                                            new TypeReference<HashMap<String, String>>() {}
-                                    );
-                                    mediaUrls = mediaService.resolveUrls(rawKeys);
-                                } catch (Exception ex) {
-                                    log.error("Failed to parse processedKeysJson for media: {}",
-                                            media.getId(), ex);
+                    if (post.getMediaIds() != null && !post.getMediaIds().isEmpty()) {
+                        for (String mId : post.getMediaIds()) {
+                            MediaEntity media = mediaMap.get(mId);
+                            if (media != null && media.getStatus().equalsIgnoreCase("ready")) {
+                                Map<String, String> mediaUrls = new HashMap<>();
+                                if (media.getProcessedKeysJson() != null
+                                        && !media.getProcessedKeysJson().isEmpty()) {
+                                    try {
+                                        ObjectMapper mapper = new ObjectMapper();
+                                        Map<String, String> rawKeys = mapper.readValue(
+                                                media.getProcessedKeysJson(),
+                                                new TypeReference<HashMap<String, String>>() {}
+                                        );
+                                        mediaUrls = mediaService.resolveUrls(rawKeys);
+                                    } catch (Exception ex) {
+                                        log.error("Failed to parse processedKeysJson for media: {}",
+                                                media.getId(), ex);
+                                    }
                                 }
+                                mediaUrls.put("type", media.getMediaType());
+                                mediaUrlsList.add(mediaUrls);
                             }
-                            mediaUrls.put("type", media.getMediaType());
                         }
                     }
 
@@ -256,7 +267,7 @@ public class PostService {
                             post.getId(),
                             post.getContent(),
                             post.getUserId(),
-                            mediaUrls,
+                            mediaUrlsList,
                             post.getVisibility(),
                             post.getLikeCount(),
                             post.getCommentCount(),
@@ -270,5 +281,45 @@ public class PostService {
                     );
                 })
                 .toList();
+    }
+
+    public List<Post> getRecommendationCandidates(int limit) {
+
+        // Protect the service from unreasonable values
+        limit = Math.min(Math.max(limit, 1), 100);
+
+        Pageable pageable = PageRequest.of(0, limit);
+
+        return postRepo.findByVisibilityAndIsDeletedFalseOrderByCreatedAtDesc(
+                Visibility.PUBLIC,
+                pageable
+        );
+    }
+
+    public List<PostResponseDTO> getRecommendationCandidatesDTO(String userId, int limit) {
+        List<Post> posts = getRecommendationCandidates(limit);
+        if (posts.isEmpty()) return List.of();
+
+        Set<String> userIds = posts.stream().map(Post::getUserId).collect(Collectors.toSet());
+        List<String> postIds = posts.stream().map(Post::getId).toList();
+        
+        Map<String, Boolean> likedMap = fetchLikedStatus(userId, postIds);
+        Map<String, String> userNameMap = fetchUserNames(userIds);
+
+        return mapPostsToDTOs(posts, likedMap, userNameMap);
+    }
+
+
+
+    //---------------------delete post(soft delete)------------------
+    public String deletePost(String postId) throws Exception{
+        if(postId==null)
+            throw new InvalidTargetObjectTypeException("Post id is required");
+        Post post = postRepo.findPostById(postId);
+        if(post == null)
+            throw new InvalidTargetObjectTypeException("Post id "+postId+" does not exist");
+        post.setIsDeleted(true);
+        postRepo.save(post);
+        return "Post is deleted successfully";
     }
 }

@@ -46,6 +46,8 @@ services:
     url: http://localhost:8080
   postsinteractionservice:
     url: http://localhost:8083
+  caption-service:
+    url: http://192.168.0.9:5000/caption-url
 
 
 #  CLOUDINARY_CLOUD_NAME=dl6qnuiud

@@ -97,4 +97,23 @@ public class MediaController {
             return new ResponseEntity<>(new Response(false, "Something went wrong", null),HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
+
+    @Autowired
+    private com.postservice.service.CaptionService captionService;
+
+    @PostMapping("/caption/trigger")
+    public ResponseEntity<?> triggerCaption(@RequestBody com.postservice.dto.TriggerCaptionRequest req) {
+        if (req.mediaId() == null || req.mediaId().isBlank() || req.url() == null || req.url().isBlank()) {
+            return new ResponseEntity<>(new Response(false, "mediaId and url are required", null), HttpStatus.BAD_REQUEST);
+        }
+        captionService.generateCaptionForImage(req.mediaId(), req.url());
+        return ResponseEntity.ok(new Response(true, "Caption generation triggered", java.util.Map.of("mediaId", req.mediaId(), "url", req.url())));
+    }
+
+    @GetMapping("/{mediaId}/caption")
+    public ResponseEntity<?> getMediaCaption(@PathVariable String mediaId) {
+        return captionService.getCaptionByMediaId(mediaId)
+                .map(caption -> new ResponseEntity<>(new Response(true, "Caption retrieved", caption), HttpStatus.OK))
+                .orElseGet(() -> new ResponseEntity<>(new Response(false, "Caption not found for media", null), HttpStatus.NOT_FOUND));
+    }
 }

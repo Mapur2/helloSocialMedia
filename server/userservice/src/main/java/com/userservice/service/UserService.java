@@ -151,4 +151,8 @@ public class UserService {
         }
         return result;
     }
+
+    public List<String> findActiveProfiles(){
+        return userRepo.findAll().stream().map(e->e.getId()).toList();
+    }
 }

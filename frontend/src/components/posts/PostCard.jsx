@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { useReactToPost, useGetLikes } from '../../hooks/usePosts';
+import { useReactToPost, useGetLikes, useDeletePost } from '../../hooks/usePosts';
 import { useAddComment, useGetComments } from '../../hooks/useSocial';
+import { useQuery } from '@tanstack/react-query';
+import axios from 'axios';
 import { useAuth } from '../../contexts/AuthContext';
 import { 
   HeartIcon, 
@@ -9,9 +11,53 @@ import {
   ChatBubbleOvalLeftIcon,
   ShareIcon,
   EllipsisHorizontalIcon,
-  XMarkIcon
+  XMarkIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon
 } from '@heroicons/react/24/outline';
 import { HeartIcon as HeartSolidIcon, PaperAirplaneIcon } from '@heroicons/react/24/solid';
+
+// Extract mediaId from a processed S3 URL like .../processed/{mediaId}/resized.jpg?...
+const extractMediaIdFromUrl = (url) => {
+  if (!url) return null;
+  const match = url.match(/\/processed\/([\w-]+)\//);
+  return match ? match[1] : null;
+};
+
+// Sub-component: fetches and renders caption for a single image
+const ImageWithCaption = ({ source }) => {
+  const mediaId = extractMediaIdFromUrl(source);
+
+  const { data: captionData } = useQuery({
+    queryKey: ['caption', mediaId],
+    queryFn: async () => {
+      const res = await axios.get(`http://localhost:8079/api/media/${mediaId}/caption`);
+      return res.data?.data || res.data;
+    },
+    enabled: !!mediaId,
+    staleTime: Infinity,
+  });
+
+  const caption = captionData?.description || captionData?.caption || captionData?.text || (typeof captionData === 'string' ? captionData : null);
+
+  return (
+    <div>
+      <img
+        src={source}
+        alt={caption || 'Post media'}
+        className="w-full max-h-[500px] object-cover hover:scale-[1.02] transition-transform duration-500"
+      />
+      {caption && (
+        <div className="px-4 py-2 bg-gray-50/80 border-t border-gray-100">
+          <p className="text-xs text-gray-500 italic leading-relaxed">
+            <span className="font-semibold text-indigo-500 not-italic">AI: </span>
+            {caption}
+          </p>
+        </div>
+      )}
+    </div>
+  );
+};
 
 const PostCard = ({ post }) => {
   const [showComments, setShowComments] = useState(false);
@@ -19,15 +65,42 @@ const PostCard = ({ post }) => {
   const [isLiked, setIsLiked] = useState(post?.isLikedByUser || false);
   const [isDisliked, setIsDisliked] = useState(false);
   const [showLikesModal, setShowLikesModal] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
+  const menuRef = useRef(null);
+  
+  const { user } = useAuth();
+  const { mutateAsync: reactToPost } = useReactToPost();
+  const { mutateAsync: addComment } = useAddComment();
+  const { mutateAsync: deletePost } = useDeletePost();
+
+  const isAuthor = user?.id === post.userId;
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setShowMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleDelete = async () => {
+    setShowMenu(false);
+    if (window.confirm("Are you sure you want to delete this post?")) {
+      try {
+        await deletePost(post.id);
+      } catch (error) {
+        console.error("Failed to delete post:", error);
+      }
+    }
+  };
+  const { data: postComments = [], isLoading: isCommentsLoading } = useGetComments(post.id, showComments);
+  const { data: likes = [], isLoading: isLikesLoading } = useGetLikes(post.id, showLikesModal);
 
   useEffect(() => {
     setIsLiked(post?.isLikedByUser || false);
   }, [post?.isLikedByUser]);
-  const { user } = useAuth();
-  const { mutateAsync: reactToPost } = useReactToPost();
-  const { mutateAsync: addComment } = useAddComment();
-  const { data: postComments = [], isLoading: isCommentsLoading } = useGetComments(post.id, showComments);
-  const { data: likes = [], isLoading: isLikesLoading } = useGetLikes(post.id, showLikesModal);
 
   const handleLike = async () => {
     const action = isLiked ? 'unlike' : 'like';
@@ -73,43 +146,60 @@ const PostCard = ({ post }) => {
     return date.toLocaleDateString();
   };
 
-  const hasMedia = post.media && Object.keys(post.media).length > 0;
-  const isVideo = hasMedia && post.media.type === 'video';
-  const mediaSource = isVideo ? post.media['720p'] : post.media?.resized;
-  const posterUrl = post.media?.thumbnail;
+  const mediaList = Array.isArray(post.media) ? post.media : (post.media && Object.keys(post.media).length > 0 ? [post.media] : []);
+  const hasMedia = mediaList.length > 0;
 
-  const videoRef = useRef(null);
+  const videoRefs = useRef([]);
+  const mediaContainerRef = useRef(null);
+  const [currentMediaIndex, setCurrentMediaIndex] = useState(0);
+
+  const handleScroll = (e) => {
+    const container = e.target;
+    const index = Math.round(container.scrollLeft / container.clientWidth);
+    setCurrentMediaIndex(index);
+  };
+
+  const scrollTo = (index) => {
+    if (mediaContainerRef.current) {
+      mediaContainerRef.current.scrollTo({
+        left: index * mediaContainerRef.current.clientWidth,
+        behavior: 'smooth'
+      });
+      setCurrentMediaIndex(index);
+    }
+  };
 
   useEffect(() => {
-    if (!isVideo || !videoRef.current) return;
+    if (!hasMedia) return;
 
     const observer = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry) => {
           if (entry.isIntersecting) {
-            // Handle the play promise to prevent DOMException errors if auto-play is blocked or interrupted
-            const playPromise = videoRef.current.play();
+            const playPromise = entry.target.play();
             if (playPromise !== undefined) {
               playPromise.catch((error) => {
                 console.log("Autoplay prevented:", error);
               });
             }
           } else {
-            videoRef.current.pause();
+            entry.target.pause();
           }
         });
       },
-      { threshold: 0.6 } // Play when 60% of the video is in view
+      { threshold: 0.6 }
     );
 
-    observer.observe(videoRef.current);
+    videoRefs.current.forEach(video => {
+      if (video) observer.observe(video);
+    });
 
     return () => {
-      if (videoRef.current) {
-        observer.unobserve(videoRef.current);
-      }
+      videoRefs.current.forEach(video => {
+        if (video) observer.unobserve(video);
+      });
     };
-  }, [isVideo, mediaSource]);
+  }, [hasMedia, mediaList]);
 
   return (
     <div className="bg-white/95 backdrop-blur-xl rounded-2xl shadow-[0_4px_20px_rgb(0,0,0,0.04)] border border-gray-100 mb-6 overflow-hidden transition-all duration-300 hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)]">
@@ -132,9 +222,37 @@ const PostCard = ({ post }) => {
             <p className="text-xs text-gray-500 font-medium">{formatDate(post.createdAt)}</p>
           </div>
         </div>
-        <button className="text-gray-400 hover:text-gray-700 hover:bg-gray-100 p-2 rounded-full transition-colors duration-200">
-          <EllipsisHorizontalIcon className="h-5 w-5" />
-        </button>
+        <div className="relative" ref={menuRef}>
+          <button 
+            onClick={() => setShowMenu(!showMenu)}
+            className="text-gray-400 hover:text-gray-700 hover:bg-gray-100 p-2 rounded-full transition-colors duration-200"
+          >
+            <EllipsisHorizontalIcon className="h-5 w-5" />
+          </button>
+          
+          {showMenu && (
+            <div className="absolute right-0 mt-1 w-48 bg-white rounded-xl shadow-lg border border-gray-100 py-1 z-35 animate-fade-in">
+              {isAuthor ? (
+                <button
+                  onClick={handleDelete}
+                  className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors font-medium"
+                >
+                  Delete Post
+                </button>
+              ) : (
+                <button
+                  onClick={() => {
+                    alert("Post reported");
+                    setShowMenu(false);
+                  }}
+                  className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  Report Post
+                </button>
+              )}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Post Content */}
@@ -143,30 +261,86 @@ const PostCard = ({ post }) => {
       </div>
 
       {/* Post Media */}
-      {hasMedia && mediaSource && (
+      {hasMedia && (
         <div className="px-5 pb-4">
-          <div className="rounded-xl overflow-hidden shadow-sm border border-gray-100 bg-gray-50/50">
-            {isVideo ? (
-              <video 
-                ref={videoRef}
-                controls
-                poster={posterUrl}
-                muted
-                loop
-                playsInline
-                className="w-full max-h-[500px] object-contain bg-black/5"
+          <div className="relative group/media">
+            <div 
+              ref={mediaContainerRef}
+              onScroll={handleScroll}
+              className={`rounded-xl overflow-hidden shadow-sm border border-gray-100 bg-gray-50/50 flex ${mediaList.length > 1 ? 'overflow-x-auto snap-x snap-mandatory hide-scrollbar' : ''}`}
+            >
+              {mediaList.map((mediaItem, idx) => {
+                const isVideoItem = mediaItem.type === 'video';
+                const source = isVideoItem ? (mediaItem['720p'] || mediaItem.url) : (mediaItem.resized || mediaItem.original || mediaItem.url);
+                const poster = mediaItem.thumbnail;
+                
+                if (!source) return null;
+
+                return (
+                  <div key={idx} className="w-full flex-shrink-0 snap-center relative">
+                    {isVideoItem ? (
+                      <video 
+                        ref={el => videoRefs.current[idx] = el}
+                        controls
+                        poster={poster}
+                        muted
+                        loop
+                        playsInline
+                        className="w-full max-h-[500px] object-contain bg-black/5"
+                      >
+                        <source src={source} type="video/mp4" />
+                        Your browser does not support the video tag.
+                      </video>
+                    ) : (
+                      <ImageWithCaption source={source} />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Top-Right Page Indicator Badge */}
+            {mediaList.length > 1 && (
+              <div className="absolute top-3 right-3 bg-black/60 backdrop-blur-md text-white text-[11px] font-semibold px-2.5 py-1 rounded-full z-10 select-none">
+                {currentMediaIndex + 1} / {mediaList.length}
+              </div>
+            )}
+
+            {/* Left and Right Overlay Arrows */}
+            {mediaList.length > 1 && currentMediaIndex > 0 && (
+              <button
+                onClick={() => scrollTo(currentMediaIndex - 1)}
+                className="absolute left-3 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white text-gray-800 rounded-full p-2 shadow-md hover:scale-110 transition-all z-10 opacity-0 group-hover/media:opacity-100"
               >
-                <source src={mediaSource} type="video/mp4" />
-                Your browser does not support the video tag.
-              </video>
-            ) : (
-              <img 
-                src={mediaSource} 
-                alt="Post media" 
-                className="w-full max-h-[500px] object-cover hover:scale-[1.02] transition-transform duration-500"
-              />
+                <ChevronLeftIcon className="w-5 h-5" />
+              </button>
+            )}
+            {mediaList.length > 1 && currentMediaIndex < mediaList.length - 1 && (
+              <button
+                onClick={() => scrollTo(currentMediaIndex + 1)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white text-gray-800 rounded-full p-2 shadow-md hover:scale-110 transition-all z-10 opacity-0 group-hover/media:opacity-100"
+              >
+                <ChevronRightIcon className="w-5 h-5" />
+              </button>
             )}
           </div>
+
+          {/* Dot Indicators */}
+          {mediaList.length > 1 && (
+            <div className="flex justify-center space-x-1.5 mt-3">
+              {mediaList.map((_, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => scrollTo(idx)}
+                  className={`w-1.5 h-1.5 rounded-full transition-all duration-200 ${
+                    idx === currentMediaIndex 
+                      ? 'bg-indigo-600 w-3' 
+                      : 'bg-gray-300 hover:bg-gray-400'
+                  }`}
+                />
+              ))}
+            </div>
+          )}
         </div>
       )}
 

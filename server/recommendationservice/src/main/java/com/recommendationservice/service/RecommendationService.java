@@ -8,6 +8,7 @@ import com.recommendationservice.entity.RecommendationHistory;
 import com.recommendationservice.entity.RecommendationItemType;
 import com.recommendationservice.repo.RecommendationHistoryRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -15,60 +16,95 @@ import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class RecommendationService {
 
     private final PostServiceClient postServiceClient;
-
     private final FollowerServiceClient followerServiceClient;
-
     private final InteractionServiceClient interactionServiceClient;
-
     private final RecommendationHistoryRepository historyRepository;
+    private final AIRecommendationService aiRecommendationService;
 
 
+    /**
+     * Called by the REST API endpoint (/api/recommendations).
+     * Retrieves pre-computed, stored recommendations without re-running the heavy LLM generation pipeline.
+     * Falls back to on-demand generation only if no stored recommendations exist yet.
+     */
     public List<PostResponseDTO> getRecommendations(String userId) {
+        List<RecommendationHistory> recentHistory = historyRepository
+                .findByUserIdAndItemTypeOrderByCreatedAtDesc(userId, RecommendationItemType.POST);
+
+        if (recentHistory != null && !recentHistory.isEmpty()) {
+            log.info("[User: {}] Found {} stored recommendations in history. Returning cached recommendations.", userId, recentHistory.size());
+
+            // Take the top 10 most recent recommended post IDs (preserve order and distinct)
+            List<String> postIds = recentHistory.stream()
+                    .map(RecommendationHistory::getItemId)
+                    .distinct()
+                    .limit(10)
+                    .toList();
+
+            // Fetch current posts from Post Service to hydrate full post DTOs
+            List<PostResponseDTO> allPosts = postServiceClient.getAllPosts(userId);
+            Map<String, PostResponseDTO> postMap = allPosts.stream()
+                    .collect(Collectors.toMap(PostResponseDTO::getId, p -> p, (p1, p2) -> p1));
+
+            List<PostResponseDTO> hydratedRecommendations = postIds.stream()
+                    .map(postMap::get)
+                    .filter(Objects::nonNull)
+                    .filter(post -> !Boolean.TRUE.equals(post.getIsDeleted()))
+                    .toList();
+
+            if (!hydratedRecommendations.isEmpty()) {
+                return hydratedRecommendations;
+            }
+        }
+
+        // If no stored recommendations exist yet (e.g. new user), generate them on-demand
+        log.info("[User: {}] No stored recommendations found, generating on-demand...", userId);
+        return generateRecommendations(userId);
+    }
+
+    /**
+     * Called by the background message queue worker (RecommendationConsumer).
+     * Computes candidate posts, filters, applies AI ranking, and stores results in RecommendationHistory.
+     */
+    public List<PostResponseDTO> generateRecommendations(String userId) {
 
         /*
-         * STEP 1
-         * Get all posts from Post Service
+         * 1. Get candidate posts
          */
-
         List<PostResponseDTO> posts =
-                postServiceClient.getAllPosts(userId);
+                postServiceClient.getRecommendationCandidates(userId);
 
+        log.info("[User: {}] Fetched {} candidate posts from Post Service", userId, posts.size());
 
         /*
-         * STEP 2
-         * Get all posts that this user has
-         * liked or commented on
+         * 2. Get posts already interacted with
          */
-
         Set<String> interactedPostIds =
                 new HashSet<>(
                         interactionServiceClient
                                 .getInteractedPostIds(userId)
                 );
 
+        log.info("[User: {}] User interacted with {} posts", userId, interactedPostIds.size());
 
         /*
-         * STEP 3
-         * Get users this user follows
+         * 3. Get users this user follows
          */
-
         Set<String> followingIds =
                 new HashSet<>(
                         followerServiceClient
                                 .getFollowingUserIds(userId)
                 );
 
-
         /*
-         * STEP 4
-         * Get posts already recommended before
+         * 4. Get posts already recommended previously
          */
-
         Set<String> recommendedPostIds =
                 historyRepository
                         .findByUserIdAndItemType(
@@ -79,37 +115,36 @@ public class RecommendationService {
                         .map(RecommendationHistory::getItemId)
                         .collect(Collectors.toSet());
 
+        log.info("[User: {}] User already has {} previously recommended posts in history", userId, recommendedPostIds.size());
 
         /*
-         * STEP 5
-         * Remove posts we don't want to recommend
+         * 5. Filter candidates
          */
-
         List<PostResponseDTO> candidates =
                 posts.stream()
 
-                        // Remove deleted posts
+                        // Don't recommend deleted posts
                         .filter(post ->
                                 !Boolean.TRUE.equals(
                                         post.getIsDeleted()
                                 )
                         )
 
-                        // Remove user's own posts
+                        // Don't recommend user's own posts
                         .filter(post ->
                                 !userId.equals(
                                         post.getUserId()
                                 )
                         )
 
-                        // Remove posts user already interacted with
+                        // Don't recommend posts already interacted with
                         .filter(post ->
                                 !interactedPostIds.contains(
                                         post.getId()
                                 )
                         )
 
-                        // Remove posts already recommended
+                        // Don't recommend posts already recommended
                         .filter(post ->
                                 !recommendedPostIds.contains(
                                         post.getId()
@@ -118,43 +153,94 @@ public class RecommendationService {
 
                         .toList();
 
+        log.info("[User: {}] Candidates remaining after filtering: {}", userId, candidates.size());
+
+        if (candidates.isEmpty()) {
+            log.info("[User: {}] No eligible candidates for LLM ranking", userId);
+            return List.of();
+        }
 
         /*
-         * STEP 6
-         * Score and rank candidates
+         * 6. Rule-based pre-ranking
+         *
+         * We don't send every post to the LLM.
+         *
+         * First select the top 30 candidates.
          */
-
-        List<PostResponseDTO> recommendations =
+        List<PostResponseDTO> recommendationsForLLM =
                 candidates.stream()
-
                         .sorted(
-                                Comparator
-                                        .comparingInt(
-                                                post ->
-                                                        calculateScore(
-                                                                (PostResponseDTO) post,
-                                                                followingIds
-                                                        )
-                                        )
-                                        .reversed()
+                                Comparator.comparingInt(
+                                        post ->
+                                                calculateScore(
+                                                        (PostResponseDTO) post,
+                                                        followingIds
+                                                )
+                                ).reversed()
                         )
-
-                        .limit(10)
-
+                        .limit(30)
                         .toList();
 
+        log.info("[User: {}] Sending {} candidates to LLM for ranking", userId, recommendationsForLLM.size());
+
 
         /*
-         * STEP 7
-         * Save recommendation history
+         * 7. Send only the top 30 candidates to the LLM
+         *
+         * LLM returns ordered post IDs.
          */
+        List<String> rankedPostIds =
+                aiRecommendationService.rankPosts(
+                        userId,
+                        recommendationsForLLM
+                );
 
+
+        /*
+         * 8. Convert returned IDs back to Post objects
+         */
+        Map<String, PostResponseDTO> postMap =
+                candidates.stream()
+                        .collect(
+                                Collectors.toMap(
+                                        PostResponseDTO::getId,
+                                        post -> post
+                                )
+                        );
+
+
+        /*
+         * 9. Preserve the order returned by the LLM (or fallback to pre-ranked candidates)
+         */
+        List<PostResponseDTO> recommendations;
+        if (rankedPostIds == null || rankedPostIds.isEmpty()) {
+            recommendations = recommendationsForLLM.stream()
+                    .limit(10)
+                    .toList();
+        } else {
+            recommendations = rankedPostIds.stream()
+                    // Make sure LLM didn't return an invalid ID
+                    .map(postMap::get)
+                    // Remove invalid/null IDs
+                    .filter(Objects::nonNull)
+                    // Only return top 10
+                    .limit(10)
+                    .toList();
+        }
+
+
+        /*
+         * 10. Save recommendation history
+         */
         saveRecommendationHistory(
                 userId,
                 recommendations
         );
 
 
+        /*
+         * 11. Return recommendations
+         */
         return recommendations;
     }
 
@@ -170,7 +256,6 @@ public class RecommendationService {
         /*
          * FOLLOWING BONUS
          */
-
         if (followingIds.contains(post.getUserId())) {
             score += 50;
         }
@@ -181,23 +266,21 @@ public class RecommendationService {
          *
          * Maximum 20 points
          */
-
         int likes =
-                Optional.ofNullable(post.getLikeCount())
-                        .orElse(0);
+                Optional.ofNullable(
+                        post.getLikeCount()
+                ).orElse(0);
 
         score += Math.min(likes, 20);
 
 
         /*
          * COMMENT SCORE
-         *
-         * 2 points per comment
          */
-
         int comments =
-                Optional.ofNullable(post.getCommentCount())
-                        .orElse(0);
+                Optional.ofNullable(
+                        post.getCommentCount()
+                ).orElse(0);
 
         score += comments * 2;
 
@@ -205,10 +288,10 @@ public class RecommendationService {
         /*
          * SHARE SCORE
          */
-
         int shares =
-                Optional.ofNullable(post.getShareCount())
-                        .orElse(0);
+                Optional.ofNullable(
+                        post.getShareCount()
+                ).orElse(0);
 
         score += shares * 3;
 
@@ -216,7 +299,6 @@ public class RecommendationService {
         /*
          * RECENCY SCORE
          */
-
         if (post.getCreatedAt() != null) {
 
             long hoursOld =
@@ -224,7 +306,6 @@ public class RecommendationService {
                             post.getCreatedAt(),
                             LocalDateTime.now()
                     );
-
 
             if (hoursOld < 1) {
 
@@ -252,6 +333,10 @@ public class RecommendationService {
             String userId,
             List<PostResponseDTO> recommendations
     ) {
+
+        if (recommendations.isEmpty()) {
+            return;
+        }
 
         List<RecommendationHistory> historyList =
                 recommendations.stream()

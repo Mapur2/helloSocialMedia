@@ -35,10 +35,10 @@ spring :
           predicates:
               - Path=/messages/**
 
-        - id: chatservice
-          uri: http://localhost:8085   # your chat-service
+        - id: recommendationservice
+          uri: http://localhost:8085
           predicates:
-            - Path=/recommendation/**
+            - Path=/api/recommendations/**, /recommendation/**
 
       globalcors:
         corsConfigurations:

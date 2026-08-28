@@ -1,9 +1,10 @@
 package com.recommendationservice.dto;
 
-
 import lombok.Data;
 
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
 
 @Data
 public class PostResponseDTO {
@@ -13,6 +14,8 @@ public class PostResponseDTO {
     private String userId;
 
     private String content;
+
+    private List<Map<String, String>> media;
 
     private String visibility;
 

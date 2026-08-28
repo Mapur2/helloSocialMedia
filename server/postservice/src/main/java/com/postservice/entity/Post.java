@@ -21,8 +21,10 @@ public class Post {
     @Column(columnDefinition = "TEXT")
     private String content;
 
-    @Column(name = "mediaId")
-    private String mediaId;
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "post_media", joinColumns = @JoinColumn(name = "post_id"))
+    @Column(name = "media_id")
+    private java.util.List<String> mediaIds = new java.util.ArrayList<>();
 
     @Enumerated(EnumType.STRING)
     @Column(length = 10, nullable = false)

@@ -1,10 +1,17 @@
-import React from 'react';
-import { useGetPosts } from '../hooks/usePosts';
+import React, { useState } from 'react';
+import { useGetPosts, useGetRecommendations } from '../hooks/usePosts';
 import CreatePost from '../components/posts/CreatePost';
 import PostCard from '../components/posts/PostCard';
+import { Sparkles, Clock } from 'lucide-react';
 
 const Home = () => {
-  const { data: posts = [], isLoading, isError, error, isFetching } = useGetPosts();
+  const [feedType, setFeedType] = useState('recommendations'); // 'recommendations' | 'latest'
+
+  const recommendationsQuery = useGetRecommendations();
+  const latestQuery = useGetPosts();
+
+  const activeQuery = feedType === 'recommendations' ? recommendationsQuery : latestQuery;
+  const { data: posts = [], isLoading, isError, error, isFetching } = activeQuery;
 
   if (isLoading && posts.length === 0) {
     return (
@@ -31,6 +38,32 @@ const Home = () => {
     <div className="max-w-2xl mx-auto p-4">
       <CreatePost />
       
+      {/* Feed Switcher Tabs */}
+      <div className="flex border-b border-gray-200 bg-white rounded-t-lg mb-6 shadow-sm overflow-hidden">
+        <button
+          onClick={() => setFeedType('recommendations')}
+          className={`flex-1 py-3 px-4 text-center font-medium text-sm flex items-center justify-center space-x-2 transition-colors duration-150 ${
+            feedType === 'recommendations'
+              ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50/50'
+              : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+          }`}
+        >
+          <Sparkles className="w-4 h-4" />
+          <span>For You</span>
+        </button>
+        <button
+          onClick={() => setFeedType('latest')}
+          className={`flex-1 py-3 px-4 text-center font-medium text-sm flex items-center justify-center space-x-2 transition-colors duration-150 ${
+            feedType === 'latest'
+              ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50/50'
+              : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+          }`}
+        >
+          <Clock className="w-4 h-4" />
+          <span>Latest Posts</span>
+        </button>
+      </div>
+
       {isError && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
           {error?.message || 'Failed to load posts'}
@@ -46,7 +79,11 @@ const Home = () => {
               </svg>
             </div>
             <h3 className="text-lg font-medium text-gray-900 mb-2">No posts yet</h3>
-            <p className="text-gray-500">Share your first thought with the world!</p>
+            <p className="text-gray-500">
+              {feedType === 'recommendations'
+                ? 'No recommended posts yet. Explore recent posts in the Latest tab!'
+                : 'Share your first thought with the world!'}
+            </p>
           </div>
         ) : (
           posts.map((post) => (

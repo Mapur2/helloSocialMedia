@@ -6,13 +6,14 @@ import lombok.AllArgsConstructor;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
 
 public record PostResponseDTO(
         String id,
         String content,
         String userId,
-        Map<String, String> media,
+        List<Map<String, String>> media,
         Visibility visibility,
         Integer likeCount,
         Integer commentCount,

@@ -11,6 +11,29 @@ spring:
       ddl-auto: update
     show-sql: false
 
+  rabbitmq:
+    host: 192.168.0.9
+    port: 5672
+    username: admin
+    password: password123
+
+  ai:
+    openai:
+      api-key: ${GROQ_API_KEY}
+      base-url: https://api.groq.com/openai
+      chat:
+        options:
+          model: openai/gpt-oss-120b
+          temperature: 0.2
+
+rabbitmq:
+  exchanges:
+    media: recommendation.exchange
+  queues:
+    media: recommendation.queue
+  routing:
+    media: recommendation.complete
+
 server:
   port: 8085
 
@@ -23,3 +46,10 @@ services:
 
   interaction:
     url: http://localhost:8083
+
+  user:
+    url: http://localhost:8080
+
+recommendation:
+  worker:
+    cron: "0 */15 * * * *"

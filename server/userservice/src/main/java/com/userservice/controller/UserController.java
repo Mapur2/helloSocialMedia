@@ -122,4 +122,9 @@ public class UserController {
     public ResponseEntity<Map<String, String>> getProfilePictures(@RequestBody UserIds userIds) {
         return ResponseEntity.ok(userService.getProfilePictureMediaIds(userIds.getIds()));
     }
+
+    @GetMapping("/active-users")
+    public  ResponseEntity<List<String>> getActiveProfiles(){
+        return ResponseEntity.ok(userService.findActiveProfiles());
+    }
 }

@@ -13,6 +13,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import javax.management.modelmbean.InvalidTargetObjectTypeException;
 import java.util.List;
 
 @RestController
@@ -37,7 +38,7 @@ public class PostController {
             newPost.setUserId(userId);
             newPost.setContent(postDto.getContent());
             newPost.setVisibility(postDto.getVisibility());
-            newPost = postService.savePost(newPost, postDto.getMediaId());
+            newPost = postService.savePost(newPost, postDto.getMediaIds());
 
             return new ResponseEntity<>(new Response(true, "Created a post", newPost), HttpStatus.OK);
         } catch (Exception e) {
@@ -99,5 +100,34 @@ public class PostController {
     @PutMapping("/comment-count")
     public ResponseEntity<Response> updateCommentCount(@RequestBody CommentMessage m){
         return  new ResponseEntity<>(new Response(true, "Updates Comment Count", postService.updateCommentCount(m)), HttpStatus.OK);
+    }
+
+    @GetMapping("/recommendation-candidates")
+    public Response getRecommendationCandidates(
+            @RequestParam(defaultValue = "100") int limit,
+            @RequestHeader(value = "X-USER-ID", required = false) String userId
+    ) {
+        List<com.postservice.dto.PostResponseDTO> posts =
+                postService.getRecommendationCandidatesDTO(userId, limit);
+
+        return new Response(
+                true,
+                "Recommendation candidates fetched successfully",
+                posts
+        );
+    }
+
+    @DeleteMapping("/{postId}")
+    public ResponseEntity<Response> deletePost(@PathVariable String postId){
+        try {
+            String post = postService.deletePost(postId);
+            return new ResponseEntity<>(new Response(true,post,null ), HttpStatus.OK);
+        }
+        catch (InvalidTargetObjectTypeException e){
+            return new ResponseEntity<>(new Response(false, e.getMessage(), null), HttpStatus.NOT_FOUND);
+        }
+        catch (Exception e){
+            return new ResponseEntity<>(new Response(false, "Something went wrong", null), HttpStatus.INTERNAL_SERVER_ERROR);
+        }
     }
 }
