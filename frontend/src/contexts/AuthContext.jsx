@@ -83,7 +83,7 @@ export const AuthProvider = ({ children }) => {
             dispatch({
               type: 'LOGIN_SUCCESS',
               payload: {
-                user: profileResponse.data,
+                user: { ...profileResponse.data, userId: profileResponse.data.id || profileResponse.data.userId },
                 token: token
               }
             });

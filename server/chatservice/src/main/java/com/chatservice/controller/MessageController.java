@@ -10,6 +10,8 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+// Not in use
+@Deprecated
 @RestController
 @RequestMapping("/messages")
 public class MessageController {
@@ -20,7 +22,9 @@ public class MessageController {
     @GetMapping("/chats/{receiverId}")
     public ResponseEntity<Response<List<Message>>> getMessages(@PathVariable String receiverId, @RequestHeader("X-USER-ID")String senderId){
         try{
-            return new ResponseEntity<>(new Response<>(true,"All messages",messageService.messages(senderId,receiverId)), HttpStatus.OK);
+//            return new ResponseEntity<>(new Response<>(true,"All messages",messageService.messages(senderId,receiverId)), HttpStatus.OK);
+
+            return null;
         }catch (Exception e){
             return new ResponseEntity<>(new Response<>(false,"Something went wrong",null), HttpStatus.INTERNAL_SERVER_ERROR);
         }

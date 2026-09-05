@@ -30,10 +30,15 @@ spring :
           predicates:
             - Path=/api/post/interact/**
 
-        - id: chatservice
-          uri: http://localhost:8084   # your chat-service
+        - id: chatservice-rest
+          uri: http://localhost:8084
           predicates:
-              - Path=/messages/**
+            - Path=/api/rooms/**, /messages/**
+
+        - id: chatservice-ws
+          uri: ws://localhost:8084
+          predicates:
+            - Path=/chat/**
 
         - id: recommendationservice
           uri: http://localhost:8085
