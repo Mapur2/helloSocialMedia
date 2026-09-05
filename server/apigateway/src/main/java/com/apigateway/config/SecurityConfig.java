@@ -29,6 +29,12 @@ public class SecurityConfig {
                 .securityContextRepository(contextRepo)
                 .authorizeExchange(exchange -> exchange
                         .pathMatchers(HttpMethod.OPTIONS).permitAll()
+                        // The WebSocket upgrade carries Authorization as an HTTP
+                        // header only if the client explicitly attached it.
+                        // The STOMP CONNECT frame then carries X-USER-ID, which
+                        // the chat service validates. So we let /chat/** through
+                        // the gateway without HTTP-level auth.
+                        .pathMatchers("/chat/**", "/chat").permitAll()
                         .pathMatchers("/api/users/login", "/api/users/register","/api/users/username/**" , "/eureka/**").permitAll()
                         .anyExchange().authenticated()
                 )
